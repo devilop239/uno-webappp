@@ -1,0 +1,7 @@
+services:
+  maumaubot:
+    build: .
+    # image: your-registry/uno-bot:latest
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data

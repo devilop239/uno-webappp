@@ -1,0 +1,555 @@
+# Telegram bot to play UNO in group chats
+# Copyright (c) 2016 Jannes Höke <uno@jhoeke.de>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+msgid ""
+msgstr ""
+"Project-Id-Version: uno_bot 0.1\n"
+"Report-Msgid-Bugs-To: uno@jhoeke.de\n"
+"POT-Creation-Date: 2019-08-28 14:21+0800\n"
+"PO-Revision-Date: 2020-04-13 09:50+0800\n"
+"Last-Translator: XhyEax <xhyeax@gmail.com>\n"
+"Language-Team: en <uno@jhoeke.de>\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 2.2.4\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: actions.py:48
+#, python-brace-format
+msgid ""
+"Waiting time to skip this player has been reduced to {time} seconds.\n"
+"Next player: {name}"
+msgstr ""
+"该玩家的等待时间已降至 {time} 秒。\n"
+"轮到： {name}"
+
+#: actions.py:54 actions.py:69
+#, python-brace-format
+msgid "{player} was skipped! "
+msgstr "{player} 已被跳过！ "
+
+#: actions.py:64
+#, python-brace-format
+msgid ""
+"{name1} ran out of time and has been removed from the game!\n"
+"Next player: {name2}"
+msgstr ""
+"{name1} 已经被连续跳过了 4 次。\n"
+"轮到： {name2}"
+
+#: actions.py:76
+#, python-brace-format
+msgid ""
+"{name} ran out of time and has been removed from the game!\n"
+"The game ended."
+msgstr ""
+"{name} 已经被连续跳过了 4 次。\n"
+"游戏结束。"
+
+#: actions.py:101
+msgid "ᴘʟᴇᴀꜱᴇ ᴄʜᴏᴏꜱᴇ ᴀ ᴄᴏʟᴏʀ 🎨"
+msgstr "请选择颜色"
+
+#: actions.py:108
+#, python-brace-format
+msgid "{name} won!"
+msgstr "{name} 赢了！"
+
+#: actions.py:123 bot.py:119 bot.py:199 bot.py:261 bot.py:340
+msgid "ɢᴀᴍᴇ ᴇɴᴅᴇᴅ!"
+msgstr "游戏结束！"
+
+#: actions.py:141 actions.py:165 actions.py:179
+msgid "There are no more cards in the deck."
+msgstr "牌堆中已经没有更多的牌了。"
+
+#: actions.py:157
+#, python-brace-format
+msgid "ʙʀᴀɪɴ ʟᴏꜱᴛ, ᴄᴀʀᴅꜱ ɢᴀɪɴᴇᴅ 😭 {name} ɢʀᴀʙꜱ {number} ᴄᴀʀᴅꜱ "
+msgstr "质疑成功！给 {name} 4 张牌"
+
+#: actions.py:171
+#, python-brace-format
+msgid "ᴄᴀʟʟ ꜰᴀɪʟᴇᴅ {name1} ᴅɪᴅɴ’ᴛ ʙʟᴜꜰꜰ, {name2} ɢᴇᴛꜱ {number} ᴄᴀʀᴅꜱ"
+msgstr "质疑 {name1} 失败！给 {name2} 6 张牌"
+
+#: bot.py:60
+msgid ""
+"Send this command in a group to be notified when a new game is started there."
+msgstr "在群组中发送该指令，以在新游戏开始时通知您。"
+
+#: bot.py:83
+#, python-brace-format
+msgid "A new game has been started in {title}"
+msgstr "新游戏已在 {title} 开始"
+
+#: bot.py:93
+msgid ""
+"Created a new game! Join the game with /join and start the game with /start"
+msgstr "创建新游戏成功！请使用 /join 加入游戏，然后使用 /start 开始游戏"
+
+#: bot.py:110 bot.py:433 bot.py:461 bot.py:488 bot.py:516
+msgid "There is no running game in this chat."
+msgstr "这个群中并没有正在运行的游戏。"
+
+#: bot.py:123 bot.py:239
+msgid ""
+"The game is not started yet. Join the game with /join and start the game "
+"with /start"
+msgstr "游戏尚未开始。请使用 /join 加入游戏，然后使用 /start 开始游戏"
+
+#: bot.py:129 bot.py:281 bot.py:446 bot.py:473 bot.py:501 bot.py:530
+#, python-brace-format
+msgid "Only the game creator ({name}) and admin can do that."
+msgstr "只有游戏创建者 ({name}) 和管理员才能执行该命令。"
+
+#: bot.py:146
+msgid "The lobby is closed"
+msgstr "已禁止中途加入游戏"
+
+#: bot.py:150 bot.py:232
+msgid "ɴᴏ ɢᴀᴍᴇ ɪɴ ᴘʀᴏɢʀᴇꜱꜱ 🎮 ᴜꜱᴇ /new ᴛᴏ ꜱᴛᴀʀᴛ"
+msgstr "这个群并没有运行中的游戏。请使用 /new 创建新游戏"
+
+#: bot.py:156
+msgid "You already joined the game. Start the game with /start"
+msgstr "您已经加入了游戏。请使用 /start 开始游戏"
+
+#: bot.py:162
+msgid "ᴄᴀʀᴅꜱ ᴀʀᴇ ᴀʟᴍᴏꜱᴛ ɢᴏɴᴇ 😭 ᴄᴀɴ’ᴛ ᴀᴅᴅ ɴᴇᴡ ᴘʟᴀʏᴇʀꜱ"
+msgstr "牌堆中已经没有足够给新加入玩家的牌了。"
+
+#: bot.py:168
+msgid "Joined the game"
+msgstr "游戏加入成功"
+
+#: bot.py:181 bot.py:193
+msgid "You are not playing in a game in this group."
+msgstr "您在这个群中并没有参加游戏。"
+
+#: bot.py:204 bot.py:274
+#, python-brace-format
+msgid "ɴᴇxᴛ ᴘʟᴀʏᴇʀ: {name}"
+msgstr "好的，轮到： {name}"
+
+#: bot.py:210
+#, python-brace-format
+msgid "{name} left the game before it started."
+msgstr "{name} 在游戏开始前就离开游戏了。"
+
+#: bot.py:253
+#, python-brace-format
+msgid "Player {name} is not found in the current game."
+msgstr "未在当前游戏中找到{name}玩家。"
+
+#: bot.py:260 bot.py:265
+#, python-brace-format
+msgid "{0} was kicked by {1}"
+msgstr "{0} 已被 {1} 踢出游戏"
+
+#: bot.py:269
+msgid "Please reply to the person you want to kick and type /kick again."
+msgstr "请回复要踢出的人，并再次输入 /kick 。"
+
+#: bot.py:299
+msgid "Game not found."
+msgstr "游戏未找到。"
+
+#: bot.py:304
+msgid "Back to last group"
+msgstr "返回上一个群"
+
+#: bot.py:307
+msgid "Please switch to the group you selected!"
+msgstr "请切换到您选择的群！"
+
+#: bot.py:313
+#, python-brace-format
+msgid ""
+"Selected group: {group}\n"
+"<b>Make sure that you switch to the correct group!</b>"
+msgstr ""
+"选择群： {group}\n"
+"<b>请确保您已切换到正确的群！</b>"
+
+#: bot.py:343
+#, python-brace-format
+msgid "Removing {name} from the game"
+msgstr "已成功将 {name} 移出游戏"
+
+#: bot.py:360
+msgid "There is no game running in this chat. Create a new one with /new"
+msgstr "这个群并没有运行中的游戏。请使用 /new 创建新游戏"
+
+#: bot.py:365
+msgid "The game has already started"
+msgstr "游戏已经开始"
+
+#: bot.py:369
+#, python-brace-format
+msgid ""
+"At least {minplayers} players must /join the game before you can start it"
+msgstr "至少需要 {minplayers} 个人 /join 加入游戏，才能开始游戏"
+
+#: bot.py:380
+#, python-brace-format
+msgid ""
+"First player: {name}\n"
+"Use /close to stop people from joining the game.\n"
+"Enable multi-translations with /enable_translations"
+msgstr ""
+"第一个出牌的玩家： {name}\n"
+"可使用 /close 阻止其他人中途加入游戏。\n"
+"使用 /enable_translations 启动游戏翻译功能"
+
+#: bot.py:417
+msgid "Please select the group you want to play in."
+msgstr "请选择您要参加游戏的群。"
+
+#: bot.py:440
+msgid "Closed the lobby. No more players can join this game."
+msgstr "游戏已设置成不允许中途加入，玩家将不允许加入游戏。"
+
+#: bot.py:468
+msgid "Opened the lobby. New players may /join the game."
+msgstr "游戏已设置成允许中途加入，新玩家现在可以使用 /join 加入游戏。"
+
+#: bot.py:495
+msgid "Enabled multi-translations. Disable with /disable_translations"
+msgstr "游戏翻译已启用，使用 /disable_translations 可以停用该功能"
+
+#: bot.py:523
+msgid ""
+"Disabled multi-translations. Enable them again with /enable_translations"
+msgstr "游戏翻译已停用，使用 /enable_translations 可以启用该功能"
+
+#: bot.py:546
+msgid "You are not playing in a game in this chat."
+msgstr "您并不在游戏中。"
+
+#: bot.py:561
+#, python-brace-format
+msgid "Please wait {time} second"
+msgid_plural "Please wait {time} seconds"
+msgstr[0] "请等待 {time} 秒"
+
+#: bot.py:637
+#, python-brace-format
+msgid "Current game: {game}"
+msgstr "当前游戏： {game}"
+
+#: bot.py:672
+#, python-brace-format
+msgid "Gamemode changed to {mode}"
+msgstr "游戏模式已切换为 {mode}"
+
+#: bot.py:678
+#, python-brace-format
+msgid "Cheat attempt by {name}"
+msgstr "{name} 试图作弊"
+
+#: bot.py:697
+#, python-brace-format
+msgid "ɴᴇxᴛ ᴘʟᴀʏᴇʀ: {name}"
+msgstr "轮到： {name}"
+
+#: bot.py:709
+#, python-brace-format
+msgid "Waiting time for {name} has been reset to {time} seconds"
+msgstr "{name} 的等待时间已经重置为 {time} 秒"
+
+#: results.py:39
+msgid "Choose Color"
+msgstr "选择颜色"
+
+#: results.py:53
+msgid "Card (tap for game state):"
+msgid_plural "Cards (tap for game state):"
+msgstr[0] "手牌 (点击查看游戏状况)："
+
+#: results.py:64
+#, python-brace-format
+msgid "{name} ({number} card)"
+msgid_plural "{name} ({number} cards)"
+msgstr[0] "{name} ({number} 张牌)"
+
+#: results.py:76
+msgid "You are not playing"
+msgstr "您并不在游戏中"
+
+#: results.py:78
+msgid ""
+"Not playing right now. Use /new to start a game or /join to join the current "
+"game in this group"
+msgstr ""
+"您并不在游戏中。请使用 /new 创建一个新游戏，或者使用 /join 加入一个现有的游戏"
+
+#: results.py:90
+msgid "The game wasn't started yet"
+msgstr "游戏还没有开始"
+
+#: results.py:92
+msgid "Start the game with /start"
+msgstr "请先使用 /start 开始游戏"
+
+#: results.py:102
+msgid "🎻 Classic mode"
+msgstr "🎻 经典模式"
+
+#: results.py:104
+msgid "Classic 🎻"
+msgstr "经典 🎻"
+
+#: results.py:114
+msgid "🚀 Sanic mode"
+msgstr "🚀 Sanic 模式"
+
+#: results.py:116
+msgid "Gotta go fast! 🚀"
+msgstr "搞快点！ 🚀\""
+
+#: results.py:126
+msgid "🐉 Wild mode"
+msgstr "🐉 野性模式"
+
+#: results.py:128
+msgid "Into the Wild~ 🐉"
+msgstr "进入旷野~ 🐉"
+
+#: results.py:141
+#, python-brace-format
+msgid "ᴘɪᴄᴋɪɴɢ {number} ᴄᴀʀᴅꜱ"
+msgid_plural "ᴘɪᴄᴋɪɴɢ {number} ᴄᴀʀᴅꜱ"
+msgstr[0] "抽取 {number} 张牌"
+
+#: results.py:167
+msgid "Pass"
+msgstr "过"
+
+#: results.py:180
+msgid "I'm calling your bluff!"
+msgstr "我要质疑你！"
+
+#: results.py:203
+#, python-brace-format
+msgid "Current player: {name}"
+msgstr "轮到： {name}"
+
+#: results.py:206
+#, python-brace-format
+msgid "Last card: {card}"
+msgstr "上一张牌： {card}"
+
+#: results.py:208
+#, python-brace-format
+msgid "Player: {player_list}"
+msgid_plural "Players: {player_list}"
+msgstr[0] "玩家： {player_list}"
+
+#: settings.py:37
+msgid "Please edit your settings in a private chat with the bot."
+msgstr "请私聊我修改您的设置。"
+
+#: settings.py:47
+msgid "Enable statistics"
+msgstr "启用数据统计"
+
+#: settings.py:49
+msgid "Delete all statistics"
+msgstr "删除所有统计数据"
+
+#: settings.py:51
+msgid "Language"
+msgstr "语言"
+
+#: settings.py:52
+msgid "Settings"
+msgstr "设置"
+
+#: settings.py:66
+msgid "Enabled statistics!"
+msgstr "数据统计已启用！"
+
+#: settings.py:72
+msgid "Select locale"
+msgstr "请选择语言"
+
+#: settings.py:82
+msgid "Deleted and disabled statistics!"
+msgstr "统计数据已经被删除并已停用！"
+
+#: settings.py:95
+msgid "Set locale!"
+msgstr "语言设置成功！"
+
+#: simple_commands.py:31
+msgid ""
+"Follow these steps:\n"
+"\n"
+"1. Add this bot to a group\n"
+"2. In the group, start a new game with /new or join an already running game "
+"with /join\n"
+"3. After at least two players have joined, start the game with /start\n"
+"4. Type <code>@unobot</code> into your chat box and hit <b>space</b>, or "
+"click the <code>via @unobot</code> text next to messages. You will see your "
+"cards (some greyed out), any extra options like drawing, and a <b>?</b> to "
+"see the current game state. The <b>greyed out cards</b> are those you <b>can "
+"not play</b> at the moment. Tap an option to execute the selected action.\n"
+"Players can join the game at any time. To leave a game, use /leave. If a "
+"player takes more than 90 seconds to play, you can use /skip to skip that "
+"player. Use /notify_me to receive a private message when a new game is "
+"started.\n"
+"\n"
+"<b>Language</b> and other settings: /settings\n"
+"Other commands (only game creator):\n"
+"/close - Close lobby\n"
+"/open - Open lobby\n"
+"/kill - Terminate the game\n"
+"/kick - Select a player to kick by replying to him or her\n"
+"/enable_translations - Translate relevant texts into all languages spoken in "
+"a game\n"
+"/disable_translations - Use English for those texts\n"
+"\n"
+"<b>Experimental:</b> Play in multiple groups at the same time. Press the "
+"<code>Current game: ...</code> button and select the group you want to play "
+"a card in.\n"
+"If you enjoy this bot, <a href=\"https://telegram.me/storebot?"
+"start=mau_mau_bot\">rate me</a>, join the <a href=\"https://telegram.me/"
+"unobotnews\">update channel</a> and buy an UNO card game."
+msgstr ""
+"游戏指引：\n"
+"\n"
+"1. 将这个 Bot 加进一个群\n"
+"2. 在这个群中，您可以使用 /new 创建一个新游戏，或者使用 /join 加入一个现有的"
+"游戏\n"
+"3. 当有最少两名玩家加入后，请使用 /start 开始游戏\n"
+"4. 在聊天框中输入 <code>@unobot</code> 并按空格键，或者点击信息旁边的 "
+"<code>via @unobot</code> 。您就可以看到您的手牌，以及一些像抽牌这样的选项， "
+"<b>?</b> 选项用来查看当前游戏状态。 <b>灰色的牌</b> 是您当前 <b>不可以</b> 打"
+"出的。请选择其中的一个选项。\n"
+"玩家随时可以加入游戏，如果想要离开当前的游戏，请输入 /leave 。如果玩家超过 "
+"90 秒没有出牌，您可以使用 /skip 跳过这个玩家\n"
+"\n"
+"<b>语言</b> 和其他设置： /settings \n"
+"其他命令（仅限游戏创建者使用）\n"
+"/close - 不允许其他人中途加入\n"
+"/open - 允许其他人中途加入\n"
+"/enable_translations - 翻译文本给游戏中所有使用不同语言的玩家\n"
+"/disable_translations - 关闭翻译并使用英文\n"
+"\n"
+"<b>实验性功能：</b> 玩家可以同时在多个群组中进行游戏。点击 <code>当前游"
+"戏： ...</code> 按钮然后选择您想在哪个群组玩。\n"
+"如果喜欢这个机器人， 请给机器人 <a href=\"https://telegram.me/storebot?"
+"start=mau_mau_bot\">评分</a> ，订阅 <a href=\"https://telegram.me/"
+"unobotnews\"> 更新频道</a> 获取最新消息，并买一副 UNO 牌。"
+
+#: simple_commands.py:73
+msgid ""
+"This UNO bot has three game modes: Classic, Sanic and Wild.\n"
+"\n"
+" 🎻 The Classic mode uses the conventional UNO deck and there is no auto "
+"skip.\n"
+" 🚀 The Sanic mode uses the conventional UNO deck and the bot automatically "
+"skips a player if he/she takes too long to play its turn\n"
+" 🐉 The Wild mode uses a deck with more special cards, less number variety "
+"and no auto skip.\n"
+"\n"
+"To change the game mode, the GAME CREATOR has to type the bot nickname and a "
+"space, just like when playing a card, and all gamemode options should appear."
+msgstr ""
+"本机器人有三种游戏模式: 传统、Sanic 及野性 (Wild) 模式。\n"
+" 🎻 传统模式使用常见的 UNO 卡组，且不会自动跳过。\n"
+" 🚀 Sanic 模式使用常见的 UNO 卡组，且机器人会自动跳过闲置过久的玩家。\n"
+" 🐉 野性 (Wild) 模式使用功能牌较多、数字牌较少的卡组，并且不会自动跳过。\n"
+"\n"
+"如果要切换游戏模式，游戏创建者必须输入机器人的使用者名称 + 空格，就像玩游戏那"
+"样，之后将显示出所有游戏模式选项以供选择。"
+
+#: simple_commands.py:85
+msgid ""
+"This bot is Free Software and licensed under the AGPL. The code is available "
+"here: \n"
+"https://github.com/jh0ker/mau_mau_bot"
+msgstr ""
+"本机器人是一个在 AGPL 协议下发行的自由软件。源代码可以在这里取得：\n"
+"https://github.com/jh0ker/mau_mau_bot"
+
+#: simple_commands.py:88
+msgid ""
+"Attributions:\n"
+"Draw icon by <a href=\"http://www.faithtoken.com/\">Faithtoken</a>\n"
+"Pass icon by <a href=\"http://delapouite.com/\">Delapouite</a>\n"
+"Originals available on http://game-icons.net\n"
+"Icons edited by ɳick"
+msgstr ""
+"来源:\n"
+"抽牌图标来自 <a href=\\http://www.faithtoken.com/\\>Faithtoken</\n"
+"a>。\n"
+"跳过图标來自 <a href=\\http://delapouite.com/\\>Delapouite</a>。\n"
+"原始图标可在 http://game-icons.net 获取。\n"
+"图标由 ɳick 编辑"
+
+#: simple_commands.py:105
+msgid "All news here: https://telegram.me/unobotnews"
+msgstr "查看机器人的所有更新: https://telegram.me/unobotnews"
+
+#: simple_commands.py:115
+msgid ""
+"You did not enable statistics. Use /settings in a private chat with the bot "
+"to enable them."
+msgstr "您并没有启用数据统计。请私聊我发送 /settings 进行设置。"
+
+#: simple_commands.py:122
+#, python-brace-format
+msgid "{number} game played"
+msgid_plural "{number} games played"
+msgstr[0] "玩了 {number} 盘"
+
+#: simple_commands.py:129
+#, python-brace-format
+msgid "{number} first place ({percent}%)"
+msgid_plural "{number} first places ({percent}%)"
+msgstr[0] "赢了 {number} 盘 ({percent}%)"
+
+#: simple_commands.py:136
+#, python-brace-format
+msgid "{number} card played"
+msgid_plural "{number} cards played"
+msgstr[0] "总共出过 {number} 张牌"
+
+#: utils.py:55 utils.py:67
+#, python-brace-format
+msgid "{emoji} Red"
+msgstr "{emoji} 红色"
+
+#: utils.py:57 utils.py:70
+#, python-brace-format
+msgid "{emoji} Blue"
+msgstr "{emoji} 蓝色"
+
+#: utils.py:59 utils.py:73
+#, python-brace-format
+msgid "{emoji} Green"
+msgstr "{emoji} 绿色"
+
+#: utils.py:61 utils.py:76
+#, python-brace-format
+msgid "{emoji} Yellow"
+msgstr "{emoji} 黄色"
+
+#~ msgid "ᴘɪᴄᴋɪɴɢ {number} ᴄᴀʀᴅꜱ"
+#~ msgstr "抽取 {number} 张牌"

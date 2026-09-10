@@ -1,0 +1,10 @@
+=== UNO DECK IMAGE DIMENSIONS REPORT ===
+
+• Classic PNG: 342 x 512 px (Aspect Ratio: 0.668)
+• Classic WebP: 342 x 512 px (Aspect Ratio: 0.668)
+• Classic Colorblind PNG: 342 x 512 px (Aspect Ratio: 0.668)
+• Classic Colorblind WebP: 342 x 512 px (Aspect Ratio: 0.668)
+• Anime PNG Playable: File not found (images\anime_deck\png\b_0.png)
+• Anime PNG Non-Playable: File not found (images\anime_deck\png_not_playable\b_0.png)
+• Anime WebP Playable (New): File not found (images\anime_deck\webp\playable\b_0.webp)
+• Anime WebP Non-Playable (New): File not found (images\anime_deck\webp\not_playable\b_0.webp)

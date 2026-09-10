@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+#
+# UNO bot — VPS / Linux launcher
+# Usage:
+#   bash start              # background daemon: logs/bot.log, pid run/unobot.pid
+#   bash start run          # foreground (Ctrl+C stops; systemd/screen/tmux)
+#   bash start daemon       # same as plain "bash start"
+#   bash start stop         # stop daemon
+#   bash start status       # show whether daemon pid is running
+#   bash start restart      # stop then start daemon
+#   bash start help
+#
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+cd "$ROOT"
+
+PID_FILE="$ROOT/run/unobot.pid"
+LOG_DIR="$ROOT/logs"
+LOG_FILE="$LOG_DIR/bot.log"
+BOT_PY="$ROOT/bot.py"
+
+pick_python() {
+  if [[ -x "$ROOT/.venv/bin/python" ]]; then
+    echo "$ROOT/.venv/bin/python"
+  elif [[ -x "$ROOT/venv/bin/python" ]]; then
+    echo "$ROOT/venv/bin/python"
+  elif command -v python3 >/dev/null 2>&1; then
+    command -v python3
+  else
+    echo "error: no Python found. Create .venv: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt" >&2
+    exit 1
+  fi
+}
+
+ensure_dirs() {
+  mkdir -p "$LOG_DIR" "$ROOT/run"
+}
+
+is_running() {
+  [[ -f "$PID_FILE" ]] || return 1
+  local pid
+  pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+  [[ -n "${pid:-}" ]] || return 1
+  kill -0 "$pid" 2>/dev/null
+}
+
+cmd_help() {
+  sed -n '3,11p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+cmd_status() {
+  if is_running; then
+    echo "unobot: running (pid $(cat "$PID_FILE"))"
+    exit 0
+  fi
+  echo "unobot: not running (no live pid in $PID_FILE)"
+  exit 1
+}
+
+cmd_stop() {
+  if ! [[ -f "$PID_FILE" ]]; then
+    echo "unobot: no pid file — nothing to stop"
+    exit 0
+  fi
+  local pid
+  pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+  if [[ -z "${pid:-}" ]]; then
+    rm -f "$PID_FILE"
+    exit 0
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    echo "unobot: stopping pid $pid ..."
+    kill "$pid" 2>/dev/null || true
+    for _ in $(seq 1 30); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 1
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "unobot: force kill $pid"
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  fi
+  rm -f "$PID_FILE"
+  echo "unobot: stopped"
+}
+
+cmd_daemon() {
+  ensure_dirs
+  if is_running; then
+    echo "unobot: already running (pid $(cat "$PID_FILE")). Use: bash start restart" >&2
+    exit 1
+  fi
+  PY="$(pick_python)"
+  if [[ ! -f "$BOT_PY" ]]; then
+    echo "error: $BOT_PY not found" >&2
+    exit 1
+  fi
+  echo "unobot: starting daemon → $LOG_FILE"
+  nohup "$PY" -u "$BOT_PY" >>"$LOG_FILE" 2>&1 &
+  echo $! >"$PID_FILE"
+  sleep 1
+  if is_running; then
+    echo "unobot: started pid $(cat "$PID_FILE")"
+  else
+    echo "unobot: failed to start — see $LOG_FILE" >&2
+    rm -f "$PID_FILE"
+    exit 1
+  fi
+}
+
+cmd_run() {
+  PY="$(pick_python)"
+  exec "$PY" -u "$BOT_PY"
+}
+
+cmd_restart() {
+  cmd_stop || true
+  sleep 1
+  cmd_daemon
+}
+
+main() {
+  local sub="${1:-daemon}"
+  case "$sub" in
+    help|-h|--help) cmd_help ;;
+    run|foreground|fg) cmd_run ;;
+    daemon|d|-d) cmd_daemon ;;
+    stop) cmd_stop ;;
+    status|st) cmd_status ;;
+    restart) cmd_restart ;;
+    *)
+      echo "unknown command: $sub — try: bash start help" >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "${1:-daemon}"

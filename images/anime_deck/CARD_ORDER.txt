@@ -1,0 +1,61 @@
+Anime UNO deck — sticker upload order (55 cards per folder)
+
+Folders:
+  png/                 — playable (vivid)
+  png_not_playable/    — not playable (faded, for disabled state)
+
+001  r_0.png
+002  r_1.png
+003  r_2.png
+004  r_3.png
+005  r_4.png
+006  r_5.png
+007  r_6.png
+008  r_7.png
+009  r_8.png
+010  r_9.png
+011  g_0.png
+012  g_1.png
+013  g_2.png
+014  g_3.png
+015  g_4.png
+016  g_5.png
+017  g_6.png
+018  g_7.png
+019  g_8.png
+020  g_9.png
+021  b_0.png
+022  b_1.png
+023  b_2.png
+024  b_3.png
+025  b_4.png
+026  b_5.png
+027  b_6.png
+028  b_7.png
+029  b_8.png
+030  b_9.png
+031  y_0.png
+032  y_1.png
+033  y_2.png
+034  y_3.png
+035  y_4.png
+036  y_5.png
+037  y_6.png
+038  y_7.png
+039  y_8.png
+040  y_9.png
+041  r_reverse.png
+042  r_skip.png
+043  r_draw.png
+044  g_reverse.png
+045  g_skip.png
+046  g_draw.png
+047  b_reverse.png
+048  b_skip.png
+049  b_draw.png
+050  y_reverse.png
+051  y_skip.png
+052  y_draw.png
+053  colorchooser.png
+054  draw_four.png
+055  draw_eight.png

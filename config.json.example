@@ -1,0 +1,13 @@
+{
+    "token": "token_here",
+    "admin_list": [0],
+    "bot_owner_ids": [0],
+    "open_lobby": true,
+    "workers": 32,
+    "default_gamemode": "fast",
+    "waiting_time": 30,
+    "time_removal_after_skip": 5,
+    "min_fast_turn_time": 15,
+    "min_players": 2,
+    "log_group_id": -1003233311003
+}

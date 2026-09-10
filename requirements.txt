@@ -1,0 +1,4 @@
+aiogram>=3.13,<4
+python-dotenv==1.0.1
+pymongo>=4.6,<5
+reportlab>=4.0.0

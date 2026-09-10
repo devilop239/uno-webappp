@@ -1,0 +1,21 @@
+apiVersion: v2
+name: uno-bot
+description: UNO Telegram bot (inline queries). Maintained by demon (@demon12809).
+type: application
+version: 0.1.0
+appVersion: latest
+kubeVersion: ">=1.22.0-0"
+keywords:
+  - telegram
+  - uno
+  - telegram-bot
+dependencies:
+  - name: common
+    repository: https://bjw-s-labs.github.io/helm-charts
+    version: 4.1.1
+sources:
+  - https://t.me/demon12809
+annotations:
+  artifacthub.io/links: |-
+    - name: Maintainer
+      url: https://t.me/demon12809
