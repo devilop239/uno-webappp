@@ -9,6 +9,7 @@ import shutil
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.staticfiles import StaticFiles
@@ -96,22 +97,15 @@ app.include_router(deck_router)
 app.include_router(leaderboard_router)
 app.include_router(game_router)
 app.include_router(ws_router)
+app.mount("/static", StaticFiles(directory="front-end"), name="frontend-static")
 
 
 @app.get("/")
 async def root():
-    return {
-        "status": "online",
-        "service": "UNO WebApp Backend Engine",
-        "docs": "/docs",
-        "endpoints": [
-            "/api/modes",
-            "/api/deck/styles",
-            "/api/game",
-            "/api/leaderboard",
-            "/ws/game/{room_id}/{user_id}",
-        ],
-    }
+    index_path = os.path.join("front-end", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"status": "online", "service": "UNO WebApp Backend Engine", "docs": "/docs"}
 
 
 @app.get("/health")
@@ -121,6 +115,11 @@ async def health_check():
         "status": "healthy",
         "database": "connected" if db is not None else "disconnected",
     }
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(os.path.join("front-end", "favicon.svg"), media_type="image/svg+xml")
 
 
 if __name__ == "__main__":

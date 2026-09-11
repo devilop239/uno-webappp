@@ -11,7 +11,14 @@ import secrets
 import time
 from typing import Any
 
-_SECRET = os.getenv("UNO_SESSION_SECRET") or secrets.token_urlsafe(32)
+# Prefer the Replit-managed session secret when the web app is hosted there.
+# Keep UNO_SESSION_SECRET as the explicit project-level override for existing
+# deployments.
+_SECRET = (
+    os.getenv("UNO_SESSION_SECRET")
+    or os.getenv("SESSION_SECRET")
+    or secrets.token_urlsafe(32)
+)
 _SESSION_TTL_SECONDS = int(os.getenv("UNO_SESSION_TTL_SECONDS", "86400"))
 
 

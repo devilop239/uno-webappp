@@ -4,6 +4,7 @@
 import asyncio
 import logging
 import random
+import secrets
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
 from fastapi import APIRouter, Header, HTTPException, Query
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/api/game", tags=["game"])
 
 
 class CreateGameRequest(BaseModel):
-    room_id: int
+    room_id: Optional[int] = None
     user_id: int
     first_name: str
     mode: str = "classic"
@@ -68,6 +69,29 @@ class DummyChat:
 BOT_NAMES = ["Pawri Wala Bhai", "Chai Sutta Boss", "Titu Mama", "Circuit", "Babu Bhaiya"]
 
 
+def _new_room_id() -> int:
+    """Return an unused six-digit room code for web-created lobbies."""
+    for _ in range(20):
+        candidate = secrets.randbelow(900000) + 100000
+        if not gm.has_active_game(candidate):
+            return candidate
+    raise HTTPException(status_code=503, detail="Could not allocate a room code")
+
+
+def _finish_web_winner(game, player) -> bool:
+    """End a web match immediately when a hand reaches zero."""
+    if not player or player.cards:
+        return False
+    winner_id = int(player.user.id)
+    if winner_id not in game.finish_order:
+        game.finish_order.append(winner_id)
+    # Telegram supports finish-order games where players leave one by one.
+    # The first web release is a single-match table: close the room as soon
+    # as someone wins so no disconnected winner can keep a stale session.
+    gm.end_game(game.chat, player.user, reason="completed")
+    return True
+
+
 async def _trigger_bot_turns_if_needed(game):
     """Automated AI Bot turn execution loop with realistic 3-5s human thinking delays and smart decision logic."""
     max_steps = 15
@@ -102,6 +126,11 @@ async def _trigger_bot_turns_if_needed(game):
             game.last_card.color = chosen
             game.choosing_color = False
             game.turn()
+            await ws_manager.broadcast_to_room(str(game.chat.id), {
+                "event": "bot_turn",
+                "bot_id": cp.user.id,
+                "state": serialize_game_state(game),
+            })
             continue
 
         # 2. Evaluate playable cards with human-like strategy
@@ -119,6 +148,8 @@ async def _trigger_bot_turns_if_needed(game):
 
             stem = str(card_to_play)
             await do_play_card(bot=None, player=cp, result_id=stem)
+            if _finish_web_winner(game, cp):
+                break
 
             # Auto-call UNO when 1 card left (no penalty)
             if len(cp.cards) == 1:
@@ -138,6 +169,8 @@ async def _trigger_bot_turns_if_needed(game):
                 playable_after = cp.playable_cards() if hasattr(cp, "playable_cards") else []
                 if playable_after:
                     await do_play_card(bot=None, player=cp, result_id=str(playable_after[0]))
+                    if _finish_web_winner(game, cp):
+                        break
                     if len(cp.cards) == 1:
                         cp.called_uno = True
                 else:
@@ -176,22 +209,22 @@ def schedule_bot_turns(game) -> None:
 @router.post("/create", response_model=Dict[str, Any])
 async def create_game(req: CreateGameRequest):
     """Host/Create a new UNO game session room."""
-    chat = DummyChat(req.room_id)
-    user = DummyUser(req.user_id, req.first_name)
+    room_id = int(req.room_id or _new_room_id())
+    if gm.has_active_game(room_id):
+        raise HTTPException(status_code=409, detail="That room code is already in use")
 
-    if gm.has_active_game(req.room_id):
-        # Reset previous game if recreating
-        existing = gm.get_game_in_chat(chat)
-        if existing:
-            gm.end_game(chat, user, reason="recreated")
+    chat = DummyChat(room_id)
+    user = DummyUser(req.user_id, req.first_name)
 
     try:
         game = gm.new_game(chat)
-        if game is not None:
-            game.mode = req.mode
-            game.deck_style = req.deck_style
-            game.hand_size = req.hand_size
-            game.stacking_enabled = req.stacking_enabled
+        if game is None:
+            raise HTTPException(status_code=409, detail="That room code is already in use")
+        game.mode = req.mode
+        game.deck_style = req.deck_style
+        game.hand_size = req.hand_size
+        game.stacking_enabled = req.stacking_enabled
+        game.host_user_id = req.user_id
         # Host automatically joins
         gm.join_game(user, chat)
 
@@ -204,7 +237,7 @@ async def create_game(req: CreateGameRequest):
             game.start()
 
         state = serialize_game_state(game)
-        await ws_manager.broadcast_to_room(str(req.room_id), {
+        await ws_manager.broadcast_to_room(str(room_id), {
             "event": "game_created",
             "state": state,
         })
@@ -216,8 +249,8 @@ async def create_game(req: CreateGameRequest):
         host_player = next((p for p in game.players if p.user.id == req.user_id), None)
         return {
             "status": "success",
-            "room_id": req.room_id,
-            "session_token": issue_session(req.room_id, req.user_id, game.match_uuid),
+            "room_id": room_id,
+            "session_token": issue_session(room_id, req.user_id, game.match_uuid),
             "state": state,
             "hand": serialize_player_hand(host_player) if host_player else [],
         }
@@ -268,6 +301,9 @@ async def start_game(req: JoinGameRequest):
         raise HTTPException(status_code=404, detail="No active game found in this room")
 
     _require_session(req.session_token, req.room_id, req.user_id, game)
+
+    if int(getattr(game, "host_user_id", req.user_id)) != int(req.user_id):
+        raise HTTPException(status_code=403, detail="Only the room host can start the game")
 
     if game.started:
         raise HTTPException(status_code=400, detail="Game has already started")
@@ -342,6 +378,7 @@ async def perform_action(req: ActionRequest):
             if not req.card_id:
                 raise HTTPException(status_code=400, detail="card_id is required for play action")
             await do_play_card(bot=None, player=cp, result_id=req.card_id)
+            finished = _finish_web_winner(game, cp)
 
         elif action == "draw":
             await do_draw(bot=None, player=cp)
@@ -377,7 +414,13 @@ async def perform_action(req: ActionRequest):
     schedule_bot_turns(game)
     state = serialize_game_state(game)
 
-    return {"status": "success", "action": action, "state": state}
+    return {
+        "status": "success",
+        "action": action,
+        "state": state,
+        "finished": bool(locals().get("finished", False)),
+        "winner_id": int(req.user_id) if locals().get("finished", False) else None,
+    }
 
 
 def _require_session(token: Optional[str], room_id: int, user_id: Optional[int], game) -> dict:

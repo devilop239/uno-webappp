@@ -540,7 +540,14 @@ async def do_call_bluff(bot: Optional[Any], player):
     if last.special not in (c.DRAW_FOUR, c.DRAW_EIGHT):
         raise InvalidActionError("There is no draw card to challenge")
     if not getattr(game, "last_draw_special_challengeable", False):
-        raise InvalidActionError("This draw card cannot be challenged")
+        # A stale Telegram/WebApp action can arrive after the challenge window
+        # has already been resolved. Treat it as a no-op instead of surfacing
+        # an exception to the caller.
+        logger.info(
+            "do_call_bluff ignored: challenge window closed user_id=%s",
+            getattr(player.user, "id", None),
+        )
+        return
 
     penalty = 4 if last.special == c.DRAW_FOUR else 8
     pending_total = game.draw_counter if game.draw_counter > 0 else penalty

@@ -3,6 +3,8 @@
 
 from typing import List, Dict, Any, Optional
 
+from aiogram.types import InlineQueryResultArticle, InlineQueryResultCachedSticker as Sticker
+
 import deck.card as c
 from modes.capabilities import supports_bluff_challenge, supports_pass_after_draw
 from ui.text_style import inline_label, premium_input_text, smallcaps
@@ -87,13 +89,17 @@ def serialize_game_state(game) -> Dict[str, Any]:
     cp = game.current_player
     last_c = game.last_card
     pass_supported = supports_pass_after_draw(game)
+    # A lobby has a current host player but no last card yet. Do not ask the
+    # game rule engine to calculate playability until dealing has started.
+    is_running = bool(getattr(game, "started", False) and last_c)
     legal_actions = {
-        "play": bool(cp and not game.choosing_color and cp.playable_cards()),
-        "draw": bool(cp and not cp.drew),
-        "pass": bool(cp and cp.drew and not game.draw_counter and pass_supported),
-        "choose_color": bool(game.choosing_color),
+        "play": bool(is_running and not game.choosing_color and cp.playable_cards()),
+        "draw": bool(is_running and cp and not cp.drew),
+        "pass": bool(is_running and cp and cp.drew and not game.draw_counter and pass_supported),
+        "choose_color": bool(is_running and game.choosing_color),
         "call_bluff": bool(
-            supports_bluff_challenge(game)
+            is_running
+            and supports_bluff_challenge(game)
             and getattr(game, "last_draw_special_challengeable", False)
         ),
     }
@@ -150,9 +156,11 @@ def serialize_player_hand(player) -> List[Dict[str, Any]]:
     """
     game = player.game
     cards_list = []
-    playable_ids = {
-        str(card) for card in player.playable_cards()
-    } if hasattr(player, "playable_cards") else set()
+    playable_ids = (
+        {str(card) for card in player.playable_cards()}
+        if getattr(game, "started", False) and hasattr(player, "playable_cards")
+        else set()
+    )
 
     for idx, card in enumerate(player.cards):
         is_playable = str(card) in playable_ids
@@ -167,3 +175,157 @@ def serialize_player_hand(player) -> List[Dict[str, Any]]:
             "sticker_file_id": c.sticker_for(card, game, playable=is_playable),
         })
     return cards_list
+
+
+# ---------------------------------------------------------------------------
+# Telegram inline-result compatibility helpers
+# ---------------------------------------------------------------------------
+#
+# The web client uses the structured serializers above, while the original
+# Telegram bot still consumes these small result builders.  Keep them here so
+# both clients use the same card assets and action identifiers.
+
+
+def _article(result_id: str, title: str, description: str = ""):
+    return InlineQueryResultArticle(
+        id=result_id,
+        title=title,
+        description=description or None,
+        input_message_content=premium_input_text(title),
+    )
+
+
+def _sticker(results, result_id: str, sticker_id: str, title: str = ""):
+    kwargs = {"id": result_id, "sticker_file_id": sticker_id}
+    if title:
+        kwargs["input_message_content"] = premium_input_text(title)
+    results.append(Sticker(**kwargs))
+
+
+def add_no_game(results):
+    results.append(_article("nogame", "No active game", "Start a game with /new."))
+
+
+def add_not_started(results):
+    results.append(_article("not_started", "Waiting for the host", "The game has not started yet."))
+
+
+def add_gameinfo(game, results):
+    results.append(_article("gameinfo", "Game information", desc_trim(game_info_text(game))))
+
+
+def add_draw(player, results):
+    _sticker(results, "draw", c.STICKERS["option_draw"], "Draw a card")
+
+
+def add_pass(results, game):
+    _sticker(results, "pass", c.STICKERS["option_pass"], "Pass turn")
+
+
+def add_call_bluff(results, game):
+    _sticker(results, "call_bluff", c.STICKERS["option_bluff"], "Call bluff")
+
+
+def add_choose_color(results, game):
+    for color in c.mode_colors(game.mode):
+        title = inline_color_choice_title(color)
+        kwargs = {
+            "id": color,
+            "title": title,
+            "description": inline_label(_("Choose a color to continue your move.")),
+            "input_message_content": premium_input_text(display_color_group(color, game)),
+        }
+        thumbnail = color_inline_thumbnail_url(color)
+        if thumbnail:
+            kwargs.update(
+                thumbnail_url=thumbnail,
+                thumbnail_width=48,
+                thumbnail_height=48,
+            )
+        results.append(InlineQueryResultArticle(**kwargs))
+
+
+def add_card(game, card, results, can_play=True, hand_index=None):
+    """Add a playable or disabled hand card using its stable card ID."""
+    result_id = str(card)
+    if hand_index is not None and not can_play:
+        result_id = f"blocked_{hand_index}"
+    _sticker(
+        results,
+        result_id,
+        c.sticker_for(card, game, playable=can_play),
+        desc_trim(repr(card)),
+    )
+
+
+def add_other_cards(player, results, game):
+    for index, card in enumerate(sorted(player.cards, key=str)):
+        add_card(game, card, results, can_play=False, hand_index=index)
+
+
+def _add_mode(results, mode, title):
+    results.append(_article(f"mode_{mode}", title, f"Switch to {title}."))
+
+
+def add_mode_classic(results):
+    _add_mode(results, "classic", "Classic UNO")
+
+
+def add_mode_fast(results):
+    _add_mode(results, "fast", "Fast UNO")
+
+
+def add_mode_wild(results):
+    _add_mode(results, "wild", "Wild UNO")
+
+
+def add_mode_rainbow(results):
+    _add_mode(results, "rainbow", "Rainbow UNO")
+
+
+def add_mode_sudden_death(results):
+    _add_mode(results, "sudden_death", "Sudden Death")
+
+
+def add_mode_no_mercy(results):
+    _add_mode(results, "no_mercy", "No Mercy")
+
+
+def add_mode_text(results):
+    _add_mode(results, "text", "Text mode")
+
+
+def add_mode_team(results):
+    _add_mode(results, "team", "Team UNO")
+
+
+def add_mercy_bonus_discard(results, game, player):
+    """Expose the no-mercy bonus discard choices when that mode is active."""
+    for index, card in enumerate(sorted(player.cards, key=str)):
+        _sticker(
+            results,
+            f"nmbonus_{index}",
+            c.sticker_for(card, game, playable=True),
+            desc_trim(repr(card)),
+        )
+    results.append(_article("nmbonus_skip", "Skip bonus discard"))
+
+
+def add_mercy_choose_opponent(results, game, player, prefix, title_fmt):
+    for target in game.players:
+        if target.user.id == player.user.id:
+            continue
+        title = title_fmt.format(display_name_label(target.user))
+        results.append(_article(f"{prefix}{target.user.id}", title))
+
+
+def add_no_mercy_turn_cards(player, results, game):
+    playable = {str(card) for card in player.playable_cards()}
+    for index, card in enumerate(sorted(player.cards, key=str)):
+        add_card(
+            game,
+            card,
+            results,
+            can_play=str(card) in playable,
+            hand_index=index,
+        )
