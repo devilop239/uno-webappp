@@ -33,7 +33,7 @@ MERCY_SPECIAL_STRINGS = frozenset(MERCY_WILD_SPECIALS)
 
 NO_MERCY_MODE_SPEC = {
     "id": "no_mercy",
-    "name": "UNO No Mercy",
+    "name": "NO MERCY",
     "description": "Aggressive UNO variant with unlimited draw stacking (+2, +4, +6, +10), 0/7 hand swaps, and 25+ card elimination.",
     "mercy_elimination_limit": 25,
     "supports_unlimited_stacking": True,

@@ -35,3 +35,15 @@ FAST_MODE_SPEC = {
     "supports_jump_in": False,
     "supports_bluff": True,
 }
+
+WILD_MODE_SPEC = {
+    "id": "wild",
+    "name": "Wild",
+    "description": "Expanded UNO mode with extra wild cards and unpredictable turns.",
+    "turn_time": 30,
+    "hand_sizes": [7, 14, 21],
+    "supports_stacking": True,
+    "supports_7_0_swap": False,
+    "supports_jump_in": False,
+    "supports_bluff": True,
+}

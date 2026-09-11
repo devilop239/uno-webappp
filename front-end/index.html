@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b130d" />
+    <meta name="color-scheme" content="dark" />
+    <title>UNO Arena</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <a class="brand" href="/" aria-label="UNO Arena home">
+          <span class="brand-mark">UNO</span>
+          <span class="brand-copy"><strong>UNO ARENA</strong><small>PLAY TOGETHER</small></span>
+        </a>
+        <div class="header-actions">
+          <span class="live-status" id="connection-pill"><i></i><span>Ready</span></span>
+          <button class="round-button" id="rules-button" type="button" aria-label="Open rules">?</button>
+        </div>
+      </header>
+
+      <main id="app" class="main-content"></main>
+    </div>
+
+    <div class="modal-backdrop hidden" id="name-modal">
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="name-title">
+        <div class="modal-mark">UNO</div>
+        <p class="eyebrow">WELCOME TO THE TABLE</p>
+        <h2 id="name-title">Choose your player name</h2>
+        <p class="muted">Your Telegram name is used automatically inside Telegram. Outside Telegram, choose the name your friends will see.</p>
+        <form id="name-form">
+          <label class="field-label" for="name-input">PLAYER NAME</label>
+          <input id="name-input" class="text-input" maxlength="24" autocomplete="nickname" placeholder="e.g. Card Shark" required />
+          <button class="primary-button wide" type="submit">Continue <span>→</span></button>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop hidden" id="color-modal">
+      <section class="modal-card color-modal-card" role="dialog" aria-modal="true" aria-labelledby="color-title">
+        <p class="eyebrow">WILD CARD</p>
+        <h2 id="color-title">Choose the next color</h2>
+        <p class="muted">Pick the color that gives you the best next move.</p>
+        <div id="color-options" class="color-options"></div>
+      </section>
+    </div>
+
+    <div class="toast-region" id="toast-region" aria-live="polite"></div>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

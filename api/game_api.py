@@ -98,7 +98,7 @@ async def _trigger_bot_turns_if_needed(game):
     steps = 0
     while game.started and game.current_player and steps < max_steps:
         cp = game.current_player
-        is_bot_player = getattr(cp.user, "is_bot", False) or cp.user.id >= 8000
+        is_bot_player = bool(getattr(cp.user, "is_bot", False))
         if not is_bot_player:
             break
 

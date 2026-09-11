@@ -9,7 +9,6 @@ import modes.classic as classic_mode
 import modes.rainbow as rainbow_mode
 import modes.no_mercy as mercy_mode
 import modes.sudden_death as sudden_death_mode
-import modes.team as team_mode
 
 router = APIRouter(prefix="/api/modes", tags=["modes"])
 
@@ -43,6 +42,17 @@ async def get_all_modes():
             },
         },
         {
+            "id": "wild",
+            "name": "Wild UNO",
+            "description": "Expanded deck with extra wild cards and unpredictable turns.",
+            "image": "/images/Modes_Selection/Wild.jpg",
+            "capabilities": {
+                "supports_bluff_challenge": True,
+                "supports_pass_after_draw": True,
+                "special_cards": ["Wild Draw Four", "Wild Draw Eight"],
+            },
+        },
+        {
             "id": "rainbow",
             "name": "Rainbow UNO",
             "description": "Expanded 6-color deck (Red, Blue, Green, Yellow, Purple, Orange) with Draw 8 and Rainbow Monster.",
@@ -56,7 +66,7 @@ async def get_all_modes():
         },
         {
             "id": "no_mercy",
-            "name": "UNO Show 'Em No Mercy",
+            "name": "NO MERCY",
             "description": "Ruthless stacking, discard-all, pass-on-7, swap-on-0, and elimination at 25+ cards.",
             "image": "/images/Modes_Selection/Wild.jpg",
             "capabilities": {
@@ -76,16 +86,6 @@ async def get_all_modes():
                 "instant_win": True,
             },
         },
-        {
-            "id": "team",
-            "name": "Team UNO (2v2 / 3v3)",
-            "description": "Cooperative team play where teammates share objective card counts to win together.",
-            "image": "/images/Modes_Selection/Team.jpg",
-            "capabilities": {
-                "team_sizes": [2, 3],
-                "shared_hand_counters": True,
-            },
-        },
     ]
     return modes_list
 
@@ -97,7 +97,7 @@ async def get_mode_detail(mode_id: str):
     if mode_id_clean not in ALL_GAME_MODES:
         raise HTTPException(status_code=404, detail=f"Mode '{mode_id}' not found")
 
-    if mode_id_clean in ("classic", "fast"):
+    if mode_id_clean in ("classic", "fast", "wild"):
         return {
             "mode": mode_id_clean,
             "colors": ["r", "b", "g", "y"],
@@ -123,10 +123,4 @@ async def get_mode_detail(mode_id: str):
             "mode": "sudden_death",
             "rules": sudden_death_mode.RULE_SUMMARY,
         }
-    elif mode_id_clean == "team":
-        return {
-            "mode": "team",
-            "rules": team_mode.RULE_SUMMARY,
-        }
-    
     return {"mode": mode_id_clean}
