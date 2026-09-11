@@ -111,6 +111,7 @@ def serialize_game_state(game) -> Dict[str, Any]:
             "name": p.user.first_name,
             "card_count": len(p.cards),
             "is_current": (p.user.id == cp.user.id),
+            "is_bot": bool(getattr(p.user, "is_bot", False)),
         }
         if game.is_team_mode:
             p_info["team"] = game.team_of(p.user.id)

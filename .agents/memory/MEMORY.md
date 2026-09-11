@@ -1,0 +1,1 @@
+- [Mobile Telegram WebApp design](mobile-webapp-design.md) — validate the game surface at narrow phone width before desktop polish.
