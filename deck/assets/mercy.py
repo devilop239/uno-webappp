@@ -14,17 +14,87 @@ _MERCY_PLAYABLE_KEYS = [
 ]
 
 
+_MERCY_FILE_MAP = {
+    # Blue
+    'b_0': 'Blue_0.webp',
+    'b_1': 'Blue_1.webp',
+    'b_2': 'Blue_2.webp',
+    'b_3': 'Blue_3.webp',
+    'b_4': 'Blue_4.webp',
+    'b_5': 'Blue_5.webp',
+    'b_6': 'Blue_6.webp',
+    'b_7': 'Blue_7_Swap.webp',
+    'b_8': 'Blue_8.webp',
+    'b_9': 'Blue_9.webp',
+    'b_discard_all': 'Blue_DiscardAll.webp',
+    'b_draw2': 'Blue_Draw2.webp',
+    'b_reverse': 'Blue_Reverse.webp',
+    'b_skip': 'Blue_Skip.webp',
+    # Green
+    'g_0': 'Green_0.webp',
+    'g_1': 'Green_1.webp',
+    'g_2': 'Green_2.webp',
+    'g_3': 'Green_3.webp',
+    'g_4': 'Green_4.webp',
+    'g_5': 'Green_5.webp',
+    'g_6': 'Green_6.webp',
+    'g_7': 'Green_7_Swap.webp',
+    'g_8': 'Green_8.webp',
+    'g_9': 'Green_9.webp',
+    'g_discard_all': 'Green_DiscardAll.webp',
+    'g_draw2': 'Green_Draw2.webp',
+    'g_reverse': 'Green_Reverse.webp',
+    'g_skip': 'Green_Skip.webp',
+    # Red
+    'r_0': 'Red_0.webp',
+    'r_1': 'Red_1.webp',
+    'r_2': 'Red_2.webp',
+    'r_3': 'Red_3.webp',
+    'r_4': 'Red_4.webp',
+    'r_5': 'Red_5.webp',
+    'r_6': 'Red_6.webp',
+    'r_7': 'Red_7_Swap.webp',
+    'r_8': 'Red_8.webp',
+    'r_9': 'Red_9.webp',
+    'r_discard_all': 'Red_DiscardAll.webp',
+    'r_draw2': 'Red_Draw2.webp',
+    'r_reverse': 'Red_Reverse.webp',
+    'r_skip': 'Red_Skip.webp',
+    # Yellow
+    'y_0': 'Yellow_0.webp',
+    'y_1': 'Yellow_1.webp',
+    'y_2': 'Yellow_2.webp',
+    'y_3': 'Yellow_3.webp',
+    'y_4': 'Yellow_4.webp',
+    'y_5': 'Yellow_5.webp',
+    'y_6': 'Yellow_6.webp',
+    'y_7': 'Yellow_7_Swap.webp',
+    'y_8': 'Yellow_8.webp',
+    'y_9': 'Yellow_9.webp',
+    'y_discard_all': 'Yellow_DiscardAll.webp',
+    'y_draw2': 'Yellow_Draw2.webp',
+    'y_reverse': 'Yellow_Reverse.webp',
+    'y_skip': 'Yellow_Skip.webp',
+    # Wilds
+    'w_wild': 'Wild.webp',
+    'w_draw4': 'Wild_Draw4.webp',
+    'w_draw6': 'Wild_Draw6.webp',
+    'w_draw10': 'Wild_Draw10.webp',
+    'w_draw4_reverse': 'Wild_Draw4_Reverse.webp',
+    'w_skip_all': 'Wild Skip All.webp',
+    'w_roulette': 'Wild_roulette.webp',
+}
+
+
 def _map_mercy_webp(key: str, playable: bool = True) -> str:
-    folder = "playble" if playable else "non_playble"
-    if key in ("w_draw10", "w_draw6", "w_draw4", "w_draw4_reverse"):
-        return f"/images/classic/{folder}/draw_four.webp"
-    if key in ("w_roulette", "w_skip_all", "w_wild"):
-        return f"/images/classic/{folder}/colorchooser.webp"
-    if "discard" in key or "draw2" in key:
-        clean = key.replace("_discard_all", "_draw").replace("_draw2", "_draw")
-        return f"/images/classic/{folder}/{clean}.webp"
-    stem = key[1:] if key.startswith("n") and len(key) > 2 else key
-    return f"/images/classic/{folder}/{stem}.webp"
+    folder = "Playble" if playable else "Non_playble"
+    clean_key = key[1:] if key.startswith("n") and len(key) > 2 and not key.startswith("nb_") and not key.startswith("ng_") and not key.startswith("nr_") and not key.startswith("ny_") else key
+    if clean_key.startswith("n") and len(clean_key) > 2 and clean_key[1] in ("b", "g", "r", "y", "w"):
+        clean_key = clean_key[1:]
+    filename = _MERCY_FILE_MAP.get(clean_key) or _MERCY_FILE_MAP.get(key)
+    if filename:
+        return f"/images/No_Mercy/{folder}/{filename}"
+    return f"/images/No_Mercy/{folder}/Wild.webp"
 
 
 CARDS_MERCY = {
@@ -33,3 +103,4 @@ CARDS_MERCY = {
 }
 
 MERCY_STICKERS = CARDS_MERCY["normal"]
+

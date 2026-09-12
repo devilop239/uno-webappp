@@ -1,6 +1,11 @@
 (() => {
   "use strict";
 
+  const BACKEND_ORIGIN = window.location.port === "8080"
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : "";
+  const backendPath = (path) => `${BACKEND_ORIGIN}${path}`;
+  const assetPath = (path) => window.location.port === "8080" ? `/public${path}` : path;
   const app = document.querySelector("#app");
   const nameModal = document.querySelector("#name-modal");
   const colorModal = document.querySelector("#color-modal");
@@ -16,12 +21,11 @@
     "Babu Bhaiya": "bot-5",
   };
   const defaultModes = [
-    { id: "classic", name: "Classic UNO", description: "108 cards, stacking and Wild +4 challenges.", image: "/images/Modes_Selection/Classic.jpg" },
-    { id: "fast", name: "Fast UNO", description: "Short turns for quick table action.", image: "/images/Modes_Selection/Sanic.png" },
-    { id: "wild", name: "Wild UNO", description: "Extra wild cards and unpredictable turns.", image: "/images/Modes_Selection/Wild.jpg" },
-    { id: "rainbow", name: "Rainbow UNO", description: "Six colors, Draw 8 and Rainbow cards.", image: "/images/Modes_Selection/rainbow.jpg" },
-    { id: "no_mercy", name: "NO MERCY", description: "Ruthless stacking and elimination rules.", image: "/images/Modes_Selection/Wild.jpg" },
-    { id: "sudden_death", name: "Sudden Death", description: "The first empty hand wins instantly.", image: "/images/Modes_Selection/sudden death.jpg" },
+    { id: "classic", name: "Classic UNO", description: "108 cards, stacking and Wild +4 challenges.", image: assetPath("/images/Modes_Selection/Classic.jpg") },
+    { id: "wild", name: "Wild UNO", description: "Extra wild cards and unpredictable turns.", image: assetPath("/images/Modes_Selection/Wild.jpg") },
+    { id: "rainbow", name: "Rainbow UNO", description: "Six colors, Draw 8 and Rainbow cards.", image: assetPath("/images/Modes_Selection/rainbow.jpg") },
+    { id: "no_mercy", name: "NO MERCY", description: "Ruthless stacking and elimination rules.", image: assetPath("/images/Modes_Selection/Wild.jpg") },
+    { id: "sudden_death", name: "Sudden Death", description: "The first empty hand wins instantly.", image: assetPath("/images/Modes_Selection/sudden death.jpg") },
   ];
 
   let player = null;
@@ -82,7 +86,7 @@
   }
 
   async function api(path, options = {}) {
-    const response = await fetch(path, {
+    const response = await fetch(backendPath(path), {
       headers: { "Content-Type": "application/json", ...(options.headers || {}) },
       ...options,
     });
@@ -129,7 +133,7 @@
         <p class="muted">A fast, friendly UNO table for Telegram and mobile browsers. Pick a mode, invite your crew, and play with clear controls.</p>
         <div class="home-stats">
           <span class="stat-pill"><strong>2–4</strong> players</span>
-          <span class="stat-pill"><strong>6</strong> modes</span>
+          <span class="stat-pill"><strong>5</strong> modes</span>
           <span class="stat-pill"><strong>Normal</strong> & Anime decks</span>
         </div>
       </section>
@@ -339,8 +343,9 @@
 
   function connectSocket() {
     if (!room?.session || socket) return;
-    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    socket = new WebSocket(`${protocol}//${location.host}/ws/game/${room.id}/${player.id}?session_token=${encodeURIComponent(room.session)}`);
+    const backendUrl = new URL(BACKEND_ORIGIN || window.location.origin);
+    const protocol = backendUrl.protocol === "https:" ? "wss:" : "ws:";
+    socket = new WebSocket(`${protocol}//${backendUrl.host}/ws/game/${room.id}/${player.id}?session_token=${encodeURIComponent(room.session)}`);
     socket.addEventListener("open", () => {
       clearTimeout(reconnectTimer);
       setConnection("Live");
@@ -354,6 +359,9 @@
     });
     socket.addEventListener("message", async (event) => {
       const message = JSON.parse(event.data);
+      if (message.notice) {
+        toast(message.notice);
+      }
       if (message.event === "bot_thinking") {
         botThinking = message;
         setConnection(`${message.bot_name} is thinking…`);
@@ -388,31 +396,47 @@
   }
 
   function cardImage(card) {
-    if (card.sticker_file_id) return card.sticker_file_id;
+    if (card && card.image) {
+      return assetPath(card.image);
+    }
     const deck = state.deck_style === "anime" ? "anime_deck" : "classic";
-    const playState = card.playable ? "playable" : "not_playable";
-    return `/images/${deck}/${playState}/${card.id}.webp`;
+    const playState = deck === "classic"
+      ? (card.playable ? "playble" : "non_playble")
+      : (card.playable ? "playable" : "not_playable");
+    return assetPath(`/images/${deck}/${playState}/${card.id}.webp`);
   }
 
   function cardLabel(card) {
     if (!card) return "—";
+    if (card.special === "w_wild") return "Wild No Mercy";
+    if (card.special === "w_draw4") return "Wild +4";
+    if (card.special === "w_draw6") return "Wild +6";
+    if (card.special === "w_draw10") return "Wild +10";
+    if (card.special === "w_draw4_reverse") return "Wild +4 Reverse";
+    if (card.special === "w_skip_all") return "Wild Skip All";
+    if (card.special === "w_roulette") return "Wild Roulette";
     if (card.special === "draw_four") return "Wild +4";
     if (card.special === "colorchooser") return "Wild";
     if (card.special === "draw_eight") return "Wild +8";
     if (card.special === "rainbow_monster") return "Rainbow Monster";
-    if (card.value === "draw") return `${colors[card.color] || ""} +2`;
-    if (card.value === "reverse") return `${colors[card.color] || ""} Reverse`;
-    if (card.value === "skip") return `${colors[card.color] || ""} Skip`;
+    if (card.value === "discard_all") return `${colors[card.color] || ""} Discard All`.trim();
+    if (card.value === "draw2" || card.value === "draw") return `${colors[card.color] || ""} +2`.trim();
+    if (card.value === "reverse") return `${colors[card.color] || ""} Reverse`.trim();
+    if (card.value === "skip") return `${colors[card.color] || ""} Skip`.trim();
+    if (card.value === "7" && state.mode === "no_mercy") return `${colors[card.color] || ""} 7 (Swap)`.trim();
     return `${colors[card.color] || ""} ${card.value || "Wild"}`.trim();
   }
 
   function opponentMarkup(item) {
-    return `<div class="opponent">${avatarMarkup(item)}<span>${esc(item.name)}</span><strong>${item.card_count} cards</strong></div>`;
+    const isEliminated = Boolean(item.is_eliminated);
+    const cardStatus = isEliminated ? "ELIMINATED 💀" : `${item.card_count} cards`;
+    return `<div class="opponent ${isEliminated ? "eliminated" : ""}">${avatarMarkup(item)}<span>${esc(item.name)}</span><strong>${cardStatus}</strong></div>`;
   }
 
   function renderGame() {
     const currentName = state.current_player_name || "Waiting";
     const myTurn = Number(state.current_player_id) === Number(player.id);
+    const isBlocked = Boolean(state.mercy_pending_swap || state.mercy_pending_roulette || state.choosing_color);
     const canAct = myTurn && !botThinking && !actionBusy && !matchFinished;
     const winner = matchFinished || state.finished ? "Match complete" : "";
     const modeName = modeFor(state.mode || selectedMode).name;
@@ -428,8 +452,8 @@
           <div class="turn-banner"><span>${winner || (myTurn && !botThinking ? "Your turn" : `${esc(currentName)}'s turn`)}</span><strong>${esc(activeColor)}</strong></div>
           <div class="opponents">${opponents.length ? opponents.map(opponentMarkup).join("") : '<span class="subtle">Waiting for opponents…</span>'}</div>
           <div class="board">
-            <div class="pile">DRAW<br />PILE</div>
-            ${state.last_card ? `<img class="discard-card" alt="${esc(cardLabel(state.last_card))}" src="${esc(state.last_card.image || cardImage(state.last_card))}" />` : '<span class="subtle">Dealing…</span>'}
+            <img class="pile" src="${assetPath("/images/card_back.png")}" alt="Draw pile" />
+            ${state.last_card ? `<img class="discard-card" alt="${esc(cardLabel(state.last_card))}" src="${esc(cardImage(state.last_card))}" />` : '<span class="subtle">Dealing…</span>'}
           </div>
           ${botThinking ? `<div class="bot-thinking">${avatarMarkup({ id: botThinking.bot_id, name: botThinking.bot_name, is_bot: true })}<span><strong>${esc(botThinking.bot_name)}</strong> is thinking…</span><i></i></div>` : ""}
         </div>
@@ -437,7 +461,7 @@
           <div class="hand-header"><h3>Your hand</h3><span>${hand.length} cards</span></div>
           <div class="hand">
             ${hand.length ? hand.map((card) => {
-              const playable = Boolean(card.playable && canAct && !state.choosing_color);
+              const playable = Boolean(card.playable && canAct && !isBlocked);
               return `<button class="card-button ${playable ? "playable" : ""}" data-card="${esc(card.id)}" ${playable ? "" : "disabled"} aria-label="Play ${esc(cardLabel(card))}"><img src="${esc(cardImage(card))}" alt="${esc(cardLabel(card))}" /></button>`;
             }).join("") : '<p class="empty-hand">Your cards will appear here.</p>'}
           </div>
@@ -454,7 +478,11 @@
     app.querySelectorAll("[data-card]").forEach((button) => button.addEventListener("click", () => performAction("play", { card_id: button.dataset.card })));
     $("#draw-button")?.addEventListener("click", () => performAction("draw"));
     $("#pass-button")?.addEventListener("click", () => performAction("pass"));
-    if (state.choosing_color && myTurn && !botThinking) openColorPicker();
+    if (myTurn && !botThinking) {
+      if (state.choosing_color || state.mercy_pending_roulette === "color") openColorPicker();
+      else if (state.mercy_pending_swap) openTargetPicker("Swap Hand (7 Card)", "Choose a player to swap your entire hand with:", state.swap_targets || [], "choose_swap_target");
+      else if (state.mercy_pending_roulette === "target") openTargetPicker("Wild Roulette Target", "Choose an opponent to draw until they hit the selected color:", state.roulette_targets || [], "choose_roulette_target");
+    }
   }
 
   function openColorPicker() {
@@ -463,6 +491,25 @@
     colorOptions.querySelectorAll("[data-color]").forEach((button) => button.addEventListener("click", () => {
       colorModal.classList.add("hidden");
       performAction("choose_color", { color: button.dataset.color });
+    }));
+  }
+
+  function openTargetPicker(title, desc, targets, actionName) {
+    const targetModal = document.querySelector("#target-modal");
+    const targetOptions = document.querySelector("#target-options");
+    const targetTitle = document.querySelector("#target-title");
+    const targetDesc = document.querySelector("#target-desc");
+    if (!targetModal || !targetOptions) return;
+
+    targetTitle.textContent = title;
+    targetDesc.textContent = desc;
+    targetOptions.innerHTML = targets.map((t) =>
+      `<button type="button" class="target-button" data-target="${t.id}"><span>${esc(t.name)}</span><small>${t.card_count} cards</small></button>`
+    ).join("") || '<p class="muted">No targets available</p>';
+    targetModal.classList.remove("hidden");
+    targetOptions.querySelectorAll("[data-target]").forEach((button) => button.addEventListener("click", () => {
+      targetModal.classList.add("hidden");
+      performAction(actionName, { target_id: Number(button.dataset.target) });
     }));
   }
 
@@ -508,7 +555,12 @@
   async function loadModes() {
     try {
       const remoteModes = await api("/api/modes");
-      if (Array.isArray(remoteModes) && remoteModes.length) modes = remoteModes;
+      if (Array.isArray(remoteModes) && remoteModes.length) {
+        modes = remoteModes.map((mode) => ({
+          ...mode,
+          image: assetPath(mode.image || ""),
+        }));
+      }
     } catch (_) {}
   }
 

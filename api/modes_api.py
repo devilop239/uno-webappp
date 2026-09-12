@@ -31,17 +31,6 @@ async def get_all_modes():
             },
         },
         {
-            "id": "fast",
-            "name": "Fast UNO",
-            "description": "Short turn timer with auto-skip penalties for high-speed action.",
-            "image": "/images/Modes_Selection/Sanic.png",
-            "capabilities": {
-                "supports_bluff_challenge": True,
-                "supports_pass_after_draw": True,
-                "turn_timer_seconds": 15,
-            },
-        },
-        {
             "id": "wild",
             "name": "Wild UNO",
             "description": "Expanded deck with extra wild cards and unpredictable turns.",
@@ -97,7 +86,7 @@ async def get_mode_detail(mode_id: str):
     if mode_id_clean not in ALL_GAME_MODES:
         raise HTTPException(status_code=404, detail=f"Mode '{mode_id}' not found")
 
-    if mode_id_clean in ("classic", "fast", "wild"):
+    if mode_id_clean in ("classic", "wild"):
         return {
             "mode": mode_id_clean,
             "colors": ["r", "b", "g", "y"],

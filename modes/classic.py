@@ -24,17 +24,6 @@ CLASSIC_MODE_SPEC = {
     "supports_bluff": True,
 }
 
-FAST_MODE_SPEC = {
-    "id": "fast",
-    "name": "Fast",
-    "description": "Fast-paced UNO mode with 15-second turn timers and automated skipping.",
-    "turn_time": 15,
-    "hand_sizes": [7, 14, 21],
-    "supports_stacking": True,
-    "supports_7_0_swap": False,
-    "supports_jump_in": False,
-    "supports_bluff": True,
-}
 
 WILD_MODE_SPEC = {
     "id": "wild",

@@ -1,15 +1,26 @@
 @echo off
-TITLE UNO WebApp Launcher
+setlocal
+title UNO WebApp Launcher
+cd /d "%~dp0"
 
-echo ==================================================
-echo  Starting UNO WebApp: Backend (8000) ^& Frontend (8080)
-echo ==================================================
+if exist "%~dp0.venv\Scripts\python.exe" (
+	set "PYTHON=%~dp0.venv\Scripts\python.exe"
+) else (
+	for /f "delims=" %%P in ('where python') do if not defined PYTHON set "PYTHON=%%P"
+)
 
-:: Launch FastAPI Backend Server in background window
-echo [1/2] Starting FastAPI Backend on http://localhost:8000 ...
-start "UNO FastAPI Backend" cmd /k "python -m uvicorn app:app --host 0.0.0.0 --port 8000 --reload --reload-exclude front-end"
+if not defined PYTHON (
+	echo Python was not found. Install Python or add it to PATH.
+	pause
+	exit /b 1
+)
 
-:: Launch Vite Frontend in current window
-echo [2/2] Starting Vite Frontend on http://localhost:8080 ...
-cd front-end
-npm run dev
+echo Starting UNO WebApp
+echo   Backend:  http://localhost:8000
+echo   Frontend: http://localhost:8080
+
+start "UNO Backend" /D "%~dp0" cmd /k ""%PYTHON%" -m uvicorn app:app --host 0.0.0.0 --port 8000 --reload --reload-exclude front-end"
+start "UNO Frontend" /D "%~dp0front-end" cmd /k ""%PYTHON%" -m http.server 8080 --bind 127.0.0.1"
+
+echo Both services started. You can close this window.
+endlocal

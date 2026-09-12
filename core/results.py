@@ -92,11 +92,17 @@ def serialize_game_state(game) -> Dict[str, Any]:
     # A lobby has a current host player but no last card yet. Do not ask the
     # game rule engine to calculate playability until dealing has started.
     is_running = bool(getattr(game, "started", False) and last_c)
+    mercy_pending_swap = bool(getattr(game, "mercy_pending_swap", False))
+    mercy_pending_roulette = getattr(game, "mercy_pending_roulette", None)
+    eliminated_uids = set(getattr(game, "eliminated_players", []) or [])
+
     legal_actions = {
-        "play": bool(is_running and not game.choosing_color and cp.playable_cards()),
-        "draw": bool(is_running and cp and not cp.drew),
-        "pass": bool(is_running and cp and cp.drew and not game.draw_counter and pass_supported),
-        "choose_color": bool(is_running and game.choosing_color),
+        "play": bool(is_running and not game.choosing_color and not mercy_pending_swap and not mercy_pending_roulette and cp.playable_cards()),
+        "draw": bool(is_running and cp and not cp.drew and not mercy_pending_swap and not mercy_pending_roulette),
+        "pass": bool(is_running and cp and cp.drew and not game.draw_counter and pass_supported and not mercy_pending_swap and not mercy_pending_roulette),
+        "choose_color": bool(is_running and (game.choosing_color or mercy_pending_roulette == "color")),
+        "choose_swap_target": bool(is_running and mercy_pending_swap),
+        "choose_roulette_target": bool(is_running and mercy_pending_roulette == "target"),
         "call_bluff": bool(
             is_running
             and supports_bluff_challenge(game)
@@ -112,10 +118,17 @@ def serialize_game_state(game) -> Dict[str, Any]:
             "card_count": len(p.cards),
             "is_current": (p.user.id == cp.user.id),
             "is_bot": bool(getattr(p.user, "is_bot", False)),
+            "is_eliminated": (p.user.id in eliminated_uids),
         }
         if game.is_team_mode:
             p_info["team"] = game.team_of(p.user.id)
         players_data.append(p_info)
+
+    opponents_targets = [
+        {"id": p.user.id, "name": p.user.first_name, "card_count": len(p.cards)}
+        for p in game.players
+        if p.user.id != cp.user.id and p.user.id not in eliminated_uids
+    ]
 
     return {
         "chat_id": game.chat.id if game.chat else None,
@@ -125,6 +138,12 @@ def serialize_game_state(game) -> Dict[str, Any]:
         "started": game.started,
         "draw_counter": game.draw_counter,
         "choosing_color": game.choosing_color,
+        "mercy_pending_swap": mercy_pending_swap,
+        "mercy_pending_roulette": mercy_pending_roulette,
+        "mercy_roulette_color": getattr(game, "mercy_roulette_color", None),
+        "eliminated_players": list(eliminated_uids),
+        "swap_targets": opponents_targets if mercy_pending_swap else [],
+        "roulette_targets": opponents_targets if mercy_pending_roulette == "target" else [],
         "active_color": getattr(last_c, "color", None) if last_c else None,
         "current_player_drew": bool(cp.drew) if cp else False,
         "legal_actions": legal_actions,
@@ -173,6 +192,7 @@ def serialize_player_hand(player) -> List[Dict[str, Any]]:
             "value": getattr(card, "value", None),
             "special": getattr(card, "special", None),
             "playable": is_playable,
+            "image": c.sticker_for(card, game, playable=is_playable),
             "sticker_file_id": c.sticker_for(card, game, playable=is_playable),
         })
     return cards_list
@@ -270,10 +290,6 @@ def _add_mode(results, mode, title):
 
 def add_mode_classic(results):
     _add_mode(results, "classic", "Classic UNO")
-
-
-def add_mode_fast(results):
-    _add_mode(results, "fast", "Fast UNO")
 
 
 def add_mode_wild(results):

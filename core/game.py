@@ -87,7 +87,6 @@ class Game(object):
 
         base_deck_sizes = {
             "classic": 108,
-            "fast": 108,
             "text": 108,
             "wild": 146,
             "rainbow": 120,

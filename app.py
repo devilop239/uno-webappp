@@ -117,6 +117,21 @@ async def health_check():
     }
 
 
+@app.get("/app.js", include_in_schema=False)
+async def frontend_script():
+    return FileResponse(os.path.join("front-end", "app.js"), media_type="application/javascript")
+
+
+@app.get("/styles.css", include_in_schema=False)
+async def frontend_styles():
+    return FileResponse(os.path.join("front-end", "styles.css"), media_type="text/css")
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+async def frontend_favicon():
+    return FileResponse(os.path.join("front-end", "favicon.svg"), media_type="image/svg+xml")
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return FileResponse(os.path.join("front-end", "favicon.svg"), media_type="image/svg+xml")

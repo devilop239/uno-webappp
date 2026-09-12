@@ -44,9 +44,10 @@ class JoinGameRequest(BaseModel):
 class ActionRequest(BaseModel):
     room_id: int
     user_id: int
-    action_type: str  # play | draw | pass | call_bluff | choose_color
+    action_type: str  # play | draw | pass | call_bluff | choose_color | choose_swap_target | choose_roulette_target
     card_id: Optional[str] = None  # stem or repr like 'r_5', 'h0'
     color: Optional[str] = None  # r, b, g, y, p, o
+    target_id: Optional[int] = None
     session_token: Optional[str] = None
 
 
@@ -114,21 +115,157 @@ async def _trigger_bot_turns_if_needed(game):
         })
         await asyncio.sleep(think_time)
 
-        # 1. Handle choosing color if bot just played a wild card
-        if game.choosing_color:
-            colors = c.mode_colors(game.mode)
-            # Smart human choice: pick the color most frequent in hand
-            hand_colors = [getattr(card, "color", None) for card in cp.cards if getattr(card, "color", None) in colors]
-            if hand_colors:
-                chosen = max(set(hand_colors), key=hand_colors.count)
+        # Handle No Mercy pending 7-swap
+        if getattr(game, "mercy_pending_swap", False):
+            from no_mercy.actions_hook import handle_swap_target
+            eliminated = set(getattr(game, "eliminated_players", []) or [])
+            opponents = [p for p in game.players if p.user.id != cp.user.id and p.user.id not in eliminated]
+            if opponents:
+                # Bot picks opponent with fewest cards to swap
+                best_target = min(opponents, key=lambda p: len(p.cards))
+                await handle_swap_target(bot=None, player=cp, target_uid=best_target.user.id)
             else:
-                chosen = random.choice(colors)
-            game.last_card.color = chosen
-            game.choosing_color = False
-            game.turn()
+                game.mercy_pending_swap = False
+                game.turn()
             await ws_manager.broadcast_to_room(str(game.chat.id), {
                 "event": "bot_turn",
                 "bot_id": cp.user.id,
+                "state": serialize_game_state(game),
+            })
+            continue
+
+        # Handle No Mercy pending Wild Roulette
+        roulette_state = getattr(game, "mercy_pending_roulette", None)
+        if roulette_state == "color":
+            colors = c.mode_colors(game.mode)
+            chosen = random.choice(colors)
+            game.mercy_roulette_color = chosen
+            game.mercy_pending_roulette = "target"
+            await ws_manager.broadcast_to_room(str(game.chat.id), {
+                "event": "bot_turn",
+                "bot_id": cp.user.id,
+                "state": serialize_game_state(game),
+            })
+            continue
+        elif roulette_state == "target":
+            from no_mercy.actions_hook import handle_roulette_target
+            eliminated = set(getattr(game, "eliminated_players", []) or [])
+            opponents = [p for p in game.players if p.user.id != cp.user.id and p.user.id not in eliminated]
+            if opponents:
+                # Bot picks opponent with fewest cards
+                best_target = min(opponents, key=lambda p: len(p.cards))
+                await handle_roulette_target(bot=None, player=cp, target_uid=best_target.user.id)
+            else:
+                game.mercy_pending_roulette = None
+                game.turn()
+            await ws_manager.broadcast_to_room(str(game.chat.id), {
+                "event": "bot_turn",
+                "bot_id": cp.user.id,
+                "state": serialize_game_state(game),
+            })
+            continue
+
+COLOR_NAMES = {
+    "r": "Red ❤️",
+    "b": "Blue 💙",
+    "g": "Green 💚",
+    "y": "Yellow 💛",
+    "p": "Purple 💜",
+    "o": "Orange 🧡",
+}
+
+
+def _resolve_bot_color_choice(game, bot_player) -> str:
+    """Helper for AI bot to choose optimal color from hand and apply it."""
+    colors = c.mode_colors(game.mode)
+    hand_colors = [getattr(card, "color", None) for card in bot_player.cards if getattr(card, "color", None) in colors]
+    chosen = max(set(hand_colors), key=hand_colors.count) if hand_colors else random.choice(colors)
+    game.choose_color(chosen)
+    color_label = COLOR_NAMES.get(chosen, chosen.upper())
+    return f"{bot_player.user.first_name} chose {color_label}"
+
+
+async def _trigger_bot_turns_if_needed(game):
+    """Automated AI Bot turn execution loop with realistic 3-5s human thinking delays and smart decision logic."""
+    max_steps = 15
+    steps = 0
+    while game.started and game.current_player and steps < max_steps:
+        cp = game.current_player
+        is_bot_player = bool(getattr(cp.user, "is_bot", False))
+        if not is_bot_player:
+            break
+
+        steps += 1
+
+        # Broadcast thinking state to room
+        think_time = round(random.uniform(3.0, 4.8), 1)
+        await ws_manager.broadcast_to_room(str(game.chat.id), {
+            "event": "bot_thinking",
+            "bot_id": cp.user.id,
+            "bot_name": cp.user.first_name,
+            "think_time": think_time,
+        })
+        await asyncio.sleep(think_time)
+
+        # Handle No Mercy pending 7-swap
+        if getattr(game, "mercy_pending_swap", False):
+            from no_mercy.actions_hook import handle_swap_target
+            eliminated = set(getattr(game, "eliminated_players", []) or [])
+            opponents = [p for p in game.players if p.user.id != cp.user.id and p.user.id not in eliminated]
+            if opponents:
+                # Bot picks opponent with fewest cards to swap
+                best_target = min(opponents, key=lambda p: len(p.cards))
+                await handle_swap_target(bot=None, player=cp, target_uid=best_target.user.id)
+            else:
+                game.mercy_pending_swap = False
+                game.turn()
+            await ws_manager.broadcast_to_room(str(game.chat.id), {
+                "event": "bot_turn",
+                "bot_id": cp.user.id,
+                "state": serialize_game_state(game),
+            })
+            continue
+
+        # Handle No Mercy pending Wild Roulette
+        roulette_state = getattr(game, "mercy_pending_roulette", None)
+        if roulette_state == "color":
+            colors = c.mode_colors(game.mode)
+            chosen = random.choice(colors)
+            game.mercy_roulette_color = chosen
+            game.mercy_pending_roulette = "target"
+            c_label = COLOR_NAMES.get(chosen, chosen.upper())
+            notice = f"{cp.user.first_name} picked {c_label} for Roulette!"
+            await ws_manager.broadcast_to_room(str(game.chat.id), {
+                "event": "bot_turn",
+                "bot_id": cp.user.id,
+                "notice": notice,
+                "state": serialize_game_state(game),
+            })
+            continue
+        elif roulette_state == "target":
+            from no_mercy.actions_hook import handle_roulette_target
+            eliminated = set(getattr(game, "eliminated_players", []) or [])
+            opponents = [p for p in game.players if p.user.id != cp.user.id and p.user.id not in eliminated]
+            if opponents:
+                best_target = min(opponents, key=lambda p: len(p.cards))
+                await handle_roulette_target(bot=None, player=cp, target_uid=best_target.user.id)
+            else:
+                game.mercy_pending_roulette = None
+                game.turn()
+            await ws_manager.broadcast_to_room(str(game.chat.id), {
+                "event": "bot_turn",
+                "bot_id": cp.user.id,
+                "state": serialize_game_state(game),
+            })
+            continue
+
+        # 1. Handle choosing color if bot just played a wild card
+        if game.choosing_color:
+            notice = _resolve_bot_color_choice(game, cp)
+            await ws_manager.broadcast_to_room(str(game.chat.id), {
+                "event": "color_chosen",
+                "bot_id": cp.user.id,
+                "notice": notice,
                 "state": serialize_game_state(game),
             })
             continue
@@ -156,23 +293,55 @@ async def _trigger_bot_turns_if_needed(game):
                 cp.called_uno = True
 
             if game.choosing_color:
-                colors = c.mode_colors(game.mode)
-                hand_colors = [getattr(card, "color", None) for card in cp.cards if getattr(card, "color", None) in colors]
-                chosen = max(set(hand_colors), key=hand_colors.count) if hand_colors else random.choice(colors)
-                game.last_card.color = chosen
-                game.choosing_color = False
-                game.turn()
+                notice = _resolve_bot_color_choice(game, cp)
+                await ws_manager.broadcast_to_room(str(game.chat.id), {
+                    "event": "color_chosen",
+                    "bot_id": cp.user.id,
+                    "notice": notice,
+                    "state": serialize_game_state(game),
+                })
+                continue
         else:
             # Bot draws card
-            await do_draw(bot=None, player=cp)
+            try:
+                await do_draw(bot=None, player=cp)
+            except GameActionError as error:
+                logger.warning(
+                    "Bot draw rejected user_id=%s: %s",
+                    getattr(cp.user, "id", None),
+                    error,
+                )
+                if game.current_player == cp:
+                    game.turn()
+                continue
+
             if game.current_player == cp:
                 playable_after = cp.playable_cards() if hasattr(cp, "playable_cards") else []
                 if playable_after:
-                    await do_play_card(bot=None, player=cp, result_id=str(playable_after[0]))
+                    try:
+                        await do_play_card(bot=None, player=cp, result_id=str(playable_after[0]))
+                    except GameActionError as error:
+                        logger.warning(
+                            "Bot drawn-card play rejected user_id=%s: %s",
+                            getattr(cp.user, "id", None),
+                            error,
+                        )
+                        if game.current_player == cp:
+                            game.turn()
+                        continue
                     if _finish_web_winner(game, cp):
                         break
                     if len(cp.cards) == 1:
                         cp.called_uno = True
+                    if game.choosing_color:
+                        notice = _resolve_bot_color_choice(game, cp)
+                        await ws_manager.broadcast_to_room(str(game.chat.id), {
+                            "event": "color_chosen",
+                            "bot_id": cp.user.id,
+                            "notice": notice,
+                            "state": serialize_game_state(game),
+                        })
+                        continue
                 else:
                     game.turn()
 
@@ -386,8 +555,29 @@ async def perform_action(req: ActionRequest):
         elif action == "choose_color":
             if not req.color or req.color not in c.mode_colors(game.mode):
                 raise HTTPException(status_code=400, detail=f"Invalid color choice: {req.color}")
-            if not game.choose_color(req.color):
-                raise HTTPException(status_code=409, detail="No color choice is pending")
+            c_label = COLOR_NAMES.get(req.color, req.color.upper())
+            notice = f"{cp.user.first_name} chose {c_label}"
+            if getattr(game, "mercy_pending_roulette", None) == "color":
+                game.mercy_roulette_color = req.color
+                game.mercy_pending_roulette = "target"
+                game.choosing_color = False
+            else:
+                if not game.choose_color(req.color):
+                    raise HTTPException(status_code=409, detail="No color choice is pending")
+
+        elif action == "choose_swap_target":
+            if not req.target_id:
+                raise HTTPException(status_code=400, detail="target_id is required for swap action")
+            from no_mercy.actions_hook import handle_swap_target
+            await handle_swap_target(bot=None, player=cp, target_uid=req.target_id)
+            finished = _finish_web_winner(game, cp)
+
+        elif action == "choose_roulette_target":
+            if not req.target_id:
+                raise HTTPException(status_code=400, detail="target_id is required for roulette action")
+            from no_mercy.actions_hook import handle_roulette_target
+            await handle_roulette_target(bot=None, player=cp, target_uid=req.target_id)
+            finished = _finish_web_winner(game, cp)
 
         elif action == "call_bluff":
             await do_call_bluff(bot=None, player=cp)
@@ -404,11 +594,14 @@ async def perform_action(req: ActionRequest):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     state = serialize_game_state(game)
-    await ws_manager.broadcast_to_room(str(req.room_id), {
+    broadcast_payload = {
         "event": f"action_{action}",
         "user_id": req.user_id,
         "state": state,
-    })
+    }
+    if locals().get("notice"):
+        broadcast_payload["notice"] = locals()["notice"]
+    await ws_manager.broadcast_to_room(str(req.room_id), broadcast_payload)
 
     # Trigger AI Bot turn if next player is a bot
     schedule_bot_turns(game)

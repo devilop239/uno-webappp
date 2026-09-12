@@ -22,14 +22,14 @@ try:
     print(f"✅ Sudden Death participation points: {SUDDEN_DEATH_PARTICIPATION_POINTS}")
     
     # Test all mode labels
-    modes = ["classic", "fast", "wild", "rainbow", "text", "sudden_death", "team"]
+    modes = ["classic", "wild", "rainbow", "text", "sudden_death", "team"]
     print("\n📋 All mode labels:")
     for mode in modes:
         label = _mode_label(mode)
         print(f"  {mode}: {label}")
     
     # Test mode validation
-    valid_modes = {"classic", "fast", "wild", "rainbow", "text", "team", "sudden_death"}
+    valid_modes = {"classic", "wild", "rainbow", "text", "team", "sudden_death"}
     print(f"\n✅ Valid modes: {valid_modes}")
     
     # Test points comparison
