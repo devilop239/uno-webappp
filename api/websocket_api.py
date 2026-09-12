@@ -80,11 +80,25 @@ async def websocket_game_endpoint(websocket: WebSocket, room_id: str, user_id: i
             if not game or not game.started:
                 await websocket.send_json({"event": "action_rejected", "detail": "No running game found"})
                 continue
+            action = str(data.get("action_type", "") or data.get("event", "")).strip().lower()
+            if action == "chat":
+                text = str(data.get("text", "")).strip()
+                if text:
+                    import time as _time
+                    player_obj = next((p for p in game.players if int(p.user.id) == int(user_id)), None)
+                    user_name = player_obj.user.first_name if player_obj else f"Player {user_id}"
+                    await ws_manager.broadcast_to_room(str(room_id), {
+                        "event": "chat_message",
+                        "user_id": int(user_id),
+                        "user_name": user_name,
+                        "text": text,
+                        "time": int(_time.time()),
+                    })
+                continue
+
             if not game.current_player or int(game.current_player.user.id) != int(user_id):
                 await websocket.send_json({"event": "action_rejected", "detail": "It is not your turn"})
                 continue
-
-            action = str(data.get("action_type", "")).strip().lower()
             player = game.current_player
             try:
                 if action == "play":

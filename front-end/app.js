@@ -144,9 +144,20 @@
     return { initials, botClass, isYou };
   }
 
+  function avatarUrl(item) {
+    if (!item) return "";
+    const seed = encodeURIComponent(item.name || `user_${item.id || 1}`);
+    const style = item.is_bot ? "bottts" : "avataaars";
+    return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}&backgroundColor=0f2617,1c3e27`;
+  }
+
   function avatarMarkup(item, extraClass = "") {
     const info = avatarInfo(item);
-    return `<span class="avatar ${info.isYou ? "you" : ""} ${info.botClass} ${extraClass}">${esc(info.initials)}</span>`;
+    const url = avatarUrl(item);
+    return `<div class="avatar ${info.isYou ? "you" : ""} ${info.botClass} ${extraClass}">
+      <img src="${url}" alt="${esc(info.initials)}" loading="lazy" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='grid';" />
+      <span class="avatar-fallback" style="display:none">${esc(info.initials)}</span>
+    </div>`;
   }
 
   function playerTile(item) {
@@ -420,6 +431,10 @@
     });
     socket.addEventListener("message", async (event) => {
       const message = JSON.parse(event.data);
+      if (message.event === "chat_message") {
+        addChatMessage(message);
+        return;
+      }
       if (message.notice) {
         toast(message.notice);
       }
@@ -432,6 +447,13 @@
       if (message.event === "bot_turn" || message.state) botThinking = null;
       if (message.state) {
         state = message.state;
+        resetTurnTimer(state.current_player_id);
+        if (message.event && message.event.startsWith("action_")) {
+          const actType = message.event.replace("action_", "");
+          const actorObj = (state.players || []).find((p) => Number(p.id) === Number(message.user_id));
+          const actorName = actorObj ? actorObj.name : "Player";
+          recordGameAction(actorName, actType, state.last_card, message.notice || "");
+        }
         await refreshHand();
         preloadGameAssets();
         if (screen === "lobby" && state.started) enterGame();
@@ -464,10 +486,17 @@
 
   async function loadSpriteManifest() {
     try {
-      const res = await fetch(assetPath("/sprites_manifest.json"));
+      let res = await fetch(assetPath("/sprites_manifest.json"));
+      if (!res.ok) {
+        res = await fetch("/sprites_manifest.json");
+      }
+      if (!res.ok) {
+        res = await fetch("/public/sprites_manifest.json");
+      }
       if (res.ok) {
         spriteManifest = await res.json();
         preloadAllSprites();
+        if (screen === "game") renderGame();
       }
     } catch (_) {}
   }
@@ -563,6 +592,194 @@
     return `${colors[card.color] || ""} ${card.value || "Wild"}`.trim();
   }
 
+  const cardNameMap = {
+    r_0: "Red 0", r_1: "Red 1", r_2: "Red 2", r_3: "Red 3", r_4: "Red 4", r_5: "Red 5", r_6: "Red 6", r_7: "Red 7", r_8: "Red 8", r_9: "Red 9", r_draw: "Red +2", r_skip: "Red Skip", r_reverse: "Red Reverse",
+    b_0: "Blue 0", b_1: "Blue 1", b_2: "Blue 2", b_3: "Blue 3", b_4: "Blue 4", b_5: "Blue 5", b_6: "Blue 6", b_7: "Blue 7", b_8: "Blue 8", b_9: "Blue 9", b_draw: "Blue +2", b_skip: "Blue Skip", b_reverse: "Blue Reverse",
+    g_0: "Green 0", g_1: "Green 1", g_2: "Green 2", g_3: "Green 3", g_4: "Green 4", g_5: "Green 5", g_6: "Green 6", g_7: "Green 7", g_8: "Green 8", g_9: "Green 9", g_draw: "Green +2", g_skip: "Green Skip", g_reverse: "Green Reverse",
+    y_0: "Yellow 0", y_1: "Yellow 1", y_2: "Yellow 2", y_3: "Yellow 3", y_4: "Yellow 4", y_5: "Yellow 5", y_6: "Yellow 6", y_7: "Yellow 7", y_8: "Yellow 8", y_9: "Yellow 9", y_draw: "Yellow +2", y_skip: "Yellow Skip", y_reverse: "Yellow Reverse",
+    colorchooser: "Wild Color Change 🌈", draw_four: "Wild +4 💥", draw_eight: "Wild +8 💥💥",
+    w_wild: "Wild No Mercy 💀", w_draw4: "Wild +4 💥", w_draw6: "Wild +6 💥", w_draw10: "Wild +10 💀", w_draw4_reverse: "Wild +4 Reverse 🔄", w_skip_all: "Wild Skip All 🛑", w_roulette: "Wild Roulette 🎰",
+    rainbow_wild: "Rainbow Wild 🌈", rainbow_lightning: "Rainbow Lightning ⚡", rainbow_monster: "Rainbow Monster 👾"
+  };
+
+  function getCardDisplayName(cardOrId) {
+    if (!cardOrId) return "Card";
+    const id = typeof cardOrId === "string" ? cardOrId : cardOrId.id;
+    if (cardNameMap[id]) return cardNameMap[id];
+    if (typeof cardOrId === "object") return cardLabel(cardOrId);
+    return String(id).replace(/_/g, " ").toUpperCase();
+  }
+
+  let lastActionText = "";
+  function recordGameAction(actorName, actionType, cardOrId = null, extraText = "") {
+    let msg = "";
+    if (actionType === "play") {
+      msg = `${actorName} played ${getCardDisplayName(cardOrId)}`;
+    } else if (actionType === "draw") {
+      msg = `${actorName} drew a card`;
+    } else if (actionType === "pass") {
+      msg = `${actorName} passed turn`;
+    } else if (actionType === "choose_color") {
+      const col = colors[extraText] || extraText || "Wild";
+      msg = `${actorName} changed color to ${col}`;
+    } else if (actionType === "swap") {
+      msg = `${actorName} swapped hand with ${extraText}`;
+    } else if (actionType === "roulette") {
+      msg = `${actorName} targeted ${extraText} with Wild Roulette`;
+    } else if (actionType === "eliminated") {
+      msg = `${actorName} was eliminated! 💀`;
+    } else if (extraText) {
+      msg = `${actorName} ${extraText}`;
+    } else {
+      msg = `${actorName} performed ${actionType}`;
+    }
+    lastActionText = msg;
+  }
+
+  let turnTimerInterval = null;
+  let turnSecondsLeft = 25;
+  let activeTurnPlayerId = null;
+
+  function resetTurnTimer(newPlayerId) {
+    if (activeTurnPlayerId !== newPlayerId) {
+      activeTurnPlayerId = newPlayerId;
+      turnSecondsLeft = 25;
+    }
+    if (turnTimerInterval) clearInterval(turnTimerInterval);
+    if (!state?.started || matchFinished || state?.finished) return;
+
+    turnTimerInterval = setInterval(() => {
+      if (screen !== "game" || matchFinished || !state?.started) return;
+      turnSecondsLeft--;
+      if (turnSecondsLeft < 0) turnSecondsLeft = 0;
+      updateTurnTimerUI();
+
+      if (turnSecondsLeft === 0 && Number(state?.current_player_id) === Number(player?.id) && !actionBusy) {
+        clearInterval(turnTimerInterval);
+        if (state?.legal_actions?.draw) performAction("draw");
+        else if (state?.legal_actions?.pass) performAction("pass");
+      }
+    }, 1000);
+  }
+
+  function updateTurnTimerUI() {
+    const timerElem = document.querySelector("#turn-timer-pill");
+    const countElem = document.querySelector("#timer-count");
+    if (!timerElem || !countElem) return;
+    countElem.textContent = `${turnSecondsLeft}s`;
+    timerElem.classList.remove("warning", "pulse-timer");
+    if (turnSecondsLeft <= 5) {
+      timerElem.classList.add("pulse-timer");
+    } else if (turnSecondsLeft <= 12) {
+      timerElem.classList.add("warning");
+    }
+  }
+
+  let chatMessages = [];
+  let isChatOpen = false;
+  let unreadChatCount = 0;
+
+  function toggleChatDrawer() {
+    isChatOpen = !isChatOpen;
+    if (isChatOpen) unreadChatCount = 0;
+    renderCurrent();
+  }
+
+  function addChatMessage(msg) {
+    chatMessages.push(msg);
+    if (chatMessages.length > 60) chatMessages.shift();
+    if (!isChatOpen) {
+      unreadChatCount++;
+      toast(`💬 ${msg.user_name}: ${msg.text}`);
+    }
+    const badge = document.querySelector("#chat-badge");
+    if (badge) {
+      badge.textContent = unreadChatCount > 0 ? unreadChatCount : "";
+      badge.style.display = unreadChatCount > 0 ? "grid" : "none";
+    }
+    renderChatMessagesOnly();
+  }
+
+  function renderChatMessagesOnly() {
+    const msgList = document.querySelector("#chat-msg-list");
+    if (!msgList) return;
+    const isSelf = (m) => Number(m.user_id) === Number(player.id);
+    msgList.innerHTML = chatMessages.length ? chatMessages.map((msg) => `
+      <div class="chat-msg ${isSelf(msg) ? "self" : ""}">
+        ${avatarMarkup({ id: msg.user_id, name: msg.user_name })}
+        <div class="chat-bubble">
+          ${!isSelf(msg) ? `<span class="chat-author">${esc(msg.user_name)}</span>` : ""}
+          <span>${esc(msg.text)}</span>
+        </div>
+      </div>`).join("") : '<p class="empty-hand" style="margin:auto">No chat messages yet. Say hi!</p>';
+    msgList.scrollTop = msgList.scrollHeight;
+  }
+
+  async function sendChatMessage(text) {
+    if (!text || !text.trim()) return;
+    const cleanText = text.trim();
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ action_type: "chat", text: cleanText }));
+    } else {
+      try {
+        await api("/api/game/chat", {
+          method: "POST",
+          body: JSON.stringify({ room_id: room.id, user_id: player.id, text: cleanText, session_token: room.session }),
+        });
+      } catch (err) {
+        toast("Failed to send chat: " + err.message);
+      }
+    }
+  }
+
+  function renderChatDrawerHtml() {
+    if (!isChatOpen) return "";
+    const emojis = ["👍", "🔥", "😂", "😮", "👏", "💀", "😎", "UNO!"];
+    const isSelf = (m) => Number(m.user_id) === Number(player.id);
+    return `
+      <div class="chat-drawer">
+        <div class="chat-drawer-header">
+          <h4>💬 Table Chat</h4>
+          <button type="button" class="chat-close-btn" id="chat-close">×</button>
+        </div>
+        <div class="chat-messages" id="chat-msg-list">
+          ${chatMessages.length ? chatMessages.map((msg) => `
+            <div class="chat-msg ${isSelf(msg) ? "self" : ""}">
+              ${avatarMarkup({ id: msg.user_id, name: msg.user_name })}
+              <div class="chat-bubble">
+                ${!isSelf(msg) ? `<span class="chat-author">${esc(msg.user_name)}</span>` : ""}
+                <span>${esc(msg.text)}</span>
+              </div>
+            </div>`).join("") : '<p class="empty-hand" style="margin:auto">No chat messages yet. Say hi!</p>'}
+        </div>
+        <div class="chat-emoji-bar">
+          ${emojis.map((e) => `<button type="button" class="chat-emoji-btn" data-emoji="${e}">${e}</button>`).join("")}
+        </div>
+        <form class="chat-input-row" id="chat-form">
+          <input type="text" class="chat-input" id="chat-input-field" placeholder="Type a message..." maxlength="120" autocomplete="off" />
+          <button type="submit" class="chat-send-btn">➤</button>
+        </form>
+      </div>`;
+  }
+
+  function attachChatEvents() {
+    if (!isChatOpen) return;
+    document.querySelector("#chat-close")?.addEventListener("click", toggleChatDrawer);
+    document.querySelectorAll(".chat-emoji-btn").forEach((btn) => btn.addEventListener("click", () => {
+      sendChatMessage(btn.dataset.emoji);
+    }));
+    document.querySelector("#chat-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.querySelector("#chat-input-field");
+      if (input && input.value.trim()) {
+        sendChatMessage(input.value.trim());
+        input.value = "";
+      }
+    });
+    const msgList = document.querySelector("#chat-msg-list");
+    if (msgList) msgList.scrollTop = msgList.scrollHeight;
+  }
+
   function opponentMarkup(item) {
     const isEliminated = Boolean(item.is_eliminated);
     const cardStatus = isEliminated ? "ELIMINATED 💀" : `${item.card_count} cards`;
@@ -582,10 +799,31 @@
       <section class="game-screen">
         <div class="game-topline">
           <div><p class="eyebrow">${esc(modeName.toUpperCase())}</p><span class="subtle">${esc(state.deck_style || selectedDeck)} deck · Room ${room.id}</span></div>
-          <button class="round-button" id="leave-game" type="button" aria-label="Leave game">×</button>
+          <div class="turn-banner-right">
+            <button class="chat-toggle-btn" id="chat-toggle-btn" type="button">
+              <span>💬 Chat</span>
+              <span class="chat-badge" id="chat-badge" style="display:${unreadChatCount > 0 ? "grid" : "none"}">${unreadChatCount || ""}</span>
+            </button>
+            <button class="round-button" id="leave-game" type="button" aria-label="Leave game">×</button>
+          </div>
         </div>
         <div class="table">
-          <div class="turn-banner"><span>${winner || (myTurn && !botThinking ? "Your turn" : `${esc(currentName)}'s turn`)}</span><strong>${esc(activeColor)}</strong></div>
+          <div class="turn-banner">
+            <span>${winner || (myTurn && !botThinking ? "Your turn" : `${esc(currentName)}'s turn`)}</span>
+            <div class="turn-banner-right">
+              <div class="timer-pill ${turnSecondsLeft <= 5 ? "pulse-timer" : turnSecondsLeft <= 12 ? "warning" : ""}" id="turn-timer-pill">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span id="timer-count">${turnSecondsLeft}s</span>
+              </div>
+              <strong>${esc(activeColor)}</strong>
+            </div>
+          </div>
+          ${lastActionText ? `
+            <div class="action-ticker">
+              <span class="action-ticker-badge">ACTION</span>
+              <span class="action-ticker-text">${esc(lastActionText)}</span>
+            </div>
+          ` : ""}
           <div class="opponents">${opponents.length ? opponents.map(opponentMarkup).join("") : '<span class="subtle">Waiting for opponents…</span>'}</div>
           <div class="board">
             <img class="pile" src="${assetPath("/images/card_back.png")}" alt="Draw pile" />
@@ -618,8 +856,11 @@
           <div class="match-meta"><span>Top card <strong>${esc(cardLabel(state.last_card))}</strong></span><span>Stack <strong>${state.draw_counter ? `+${state.draw_counter}` : "clear"}</strong></span></div>
           <p class="error-text" id="game-error"></p>
         </section>
+        ${renderChatDrawerHtml()}
       </section>`;
 
+    $("#chat-toggle-btn")?.addEventListener("click", toggleChatDrawer);
+    attachChatEvents();
     $("#leave-game")?.addEventListener("click", leaveRoom);
     app.querySelectorAll("[data-card]").forEach((button) => button.addEventListener("click", () => performAction("play", { card_id: button.dataset.card }, button)));
     $("#draw-button")?.addEventListener("click", () => performAction("draw"));

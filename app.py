@@ -136,6 +136,17 @@ async def health_check():
     }
 
 
+@app.get("/sprites_manifest.json", include_in_schema=False)
+@app.get("/public/sprites_manifest.json", include_in_schema=False)
+async def sprites_manifest():
+    manifest_path = os.path.join("front-end", "sprites_manifest.json")
+    if not os.path.exists(manifest_path):
+        manifest_path = os.path.join("front-end", "public", "sprites_manifest.json")
+    if os.path.exists(manifest_path):
+        return FileResponse(manifest_path, media_type="application/json")
+    return Response(content="{}", media_type="application/json", status_code=404)
+
+
 @app.get("/app.js", include_in_schema=False)
 async def frontend_script():
     return FileResponse(os.path.join("front-end", "app.js"), media_type="application/javascript")

@@ -51,6 +51,13 @@ class ActionRequest(BaseModel):
     session_token: Optional[str] = None
 
 
+class ChatMessageRequest(BaseModel):
+    room_id: int
+    user_id: int
+    text: str
+    session_token: Optional[str] = None
+
+
 class DummyUser:
     def __init__(self, user_id: int, first_name: str, is_bot: bool = False):
         self.id = int(user_id)
@@ -627,3 +634,63 @@ def _require_session(token: Optional[str], room_id: int, user_id: Optional[int],
     if not any(int(player.user.id) == int(payload["user_id"]) for player in game.players):
         raise HTTPException(status_code=403, detail="User is not a member of this room")
     return payload
+
+
+BOT_FUN_LINES = [
+    "Arre wah! Great hand!",
+    "Dekh ke bhai, mere paas lethal card hai!",
+    "Kya baat hai! UNO time! 🚀",
+    "Abhi dekho mera wild card magic ✨",
+    "Chintu: Hamari dukan chal rahi hai!",
+    "Baburao: Ye baburao ka style hai!",
+    "Raju: 21 din mein cards double!",
+    "Masterstroke move! 🔥",
+]
+
+
+@router.post("/chat", response_model=Dict[str, Any])
+async def send_chat_message(req: ChatMessageRequest):
+    """Send an in-game chat message or emoji reaction."""
+    chat = DummyChat(req.room_id)
+    game = gm.get_game_in_chat(chat)
+    if not game:
+        raise HTTPException(status_code=404, detail="No active game found in this room")
+
+    _require_session(req.session_token, req.room_id, req.user_id, game)
+
+    sender = next((p for p in game.players if int(p.user.id) == int(req.user_id)), None)
+    sender_name = sender.user.first_name if sender else f"Player {req.user_id}"
+
+    import time
+    msg_data = {
+        "event": "chat_message",
+        "user_id": req.user_id,
+        "user_name": sender_name,
+        "text": req.text.strip(),
+        "time": int(time.time()),
+    }
+    await ws_manager.broadcast_to_room(str(req.room_id), msg_data)
+
+    # In bot matches, randomly trigger a fun bot response!
+    if any(p.user.is_bot for p in game.players):
+        import random
+        if random.random() < 0.5:
+            bots = [p for p in game.players if p.user.is_bot]
+            if bots:
+                chosen_bot = random.choice(bots)
+                bot_reply = random.choice(BOT_FUN_LINES)
+                asyncio.create_task(_delay_bot_chat(req.room_id, chosen_bot.user.id, chosen_bot.user.first_name, bot_reply))
+
+    return {"status": "success", "message": msg_data}
+
+
+async def _delay_bot_chat(room_id: int, bot_id: int, bot_name: str, text: str):
+    await asyncio.sleep(1.2)
+    import time
+    await ws_manager.broadcast_to_room(str(room_id), {
+        "event": "chat_message",
+        "user_id": bot_id,
+        "user_name": bot_name,
+        "text": text,
+        "time": int(time.time()),
+    })
