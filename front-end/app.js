@@ -42,6 +42,8 @@
   let actionBusy = false;
   let botThinking = null;
   let matchFinished = false;
+  let matchResult = null;
+  let leaderboardPeriod = "all";
 
   const imageCache = new Map();
 
@@ -200,6 +202,7 @@
       <div class="home-actions">
         <button class="primary-button wide" type="button" data-action="bot">Play with bots <span>→</span></button>
         <button class="secondary-button wide" type="button" data-action="friend">Play with friends <span>→</span></button>
+        <button class="leaderboard-entry" type="button" id="leaderboard-entry"><span>✦</span><span><strong>Global leaderboard</strong><small>See the players climbing the table</small></span><b>→</b></button>
       </div>`;
 
     app.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
@@ -207,6 +210,22 @@
       renderHome();
     }));
     app.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => renderSetup(button.dataset.action)));
+    $("#leaderboard-entry")?.addEventListener("click", renderLeaderboard);
+  }
+
+  async function renderLeaderboard() {
+    screen = "leaderboard";
+    app.innerHTML = `<section class="screen-header"><a class="back-link" href="#" id="leaderboard-back">← Back to home</a><p class="eyebrow">GLOBAL RANKINGS</p><h2>Climb the table.</h2><p class="muted">Public points from completed matches, refreshed lightly for a smooth mobile experience.</p></section><section class="leaderboard-card"><div class="leaderboard-tabs">${[["all", "All time"], ["week", "This week"], ["month", "This month"]].map(([value, label]) => `<button type="button" class="leaderboard-tab ${leaderboardPeriod === value ? "active" : ""}" data-period="${value}">${label}</button>`).join("")}</div><div id="leaderboard-list" class="leaderboard-list"><p class="leaderboard-state">Loading rankings…</p></div></section>`;
+    $("#leaderboard-back")?.addEventListener("click", (event) => { event.preventDefault(); renderHome(); });
+    app.querySelectorAll("[data-period]").forEach((button) => button.addEventListener("click", () => { leaderboardPeriod = button.dataset.period; renderLeaderboard(); }));
+    try {
+      const payload = await api(`/api/leaderboard?period=${leaderboardPeriod}&limit=20`);
+      const list = $("#leaderboard-list");
+      if (!list) return;
+      list.innerHTML = payload.leaderboard?.length ? payload.leaderboard.map((item) => `<div class="leaderboard-row ${Number(item.user_id) === Number(player?.id) ? "current" : ""}"><span class="leaderboard-rank">${item.rank <= 3 ? ["🥇", "🥈", "🥉"][item.rank - 1] : `#${item.rank}`}</span>${avatarMarkup({ id: item.user_id, name: item.name })}<span class="leaderboard-name"><strong>${esc(item.name)}</strong>${Number(item.user_id) === Number(player?.id) ? "<small>That’s you</small>" : ""}</span><strong class="leaderboard-points">${Number(item.points || 0).toLocaleString()}<small>pts</small></strong></div>`).join("") : '<p class="leaderboard-state">No completed matches yet. Be the first on the board.</p>';
+    } catch (error) {
+      $("#leaderboard-list").innerHTML = `<p class="leaderboard-state">${esc(error.message)}</p>`;
+    }
   }
 
   function renderSetup(type) {
@@ -514,6 +533,7 @@
   function renderCurrent() {
     if (screen === "lobby") renderLobby();
     if (screen === "game") renderGame();
+    if (screen === "leaderboard") renderLeaderboard();
   }
 
   let spriteManifest = null;
@@ -603,16 +623,8 @@
 
   function preloadGameAssets() {
     preloadActiveDeckSprites();
-    if (state && state.last_card) {
-      const img = new Image();
-      img.src = cardImage(state.last_card);
-    }
-    if (hand && hand.length) {
-      hand.forEach((card) => {
-        const img = new Image();
-        img.src = cardImage(card);
-      });
-    }
+    if (state && state.last_card) preloadImage(cardImage(state.last_card));
+    if (hand && hand.length) hand.forEach((card) => preloadImage(cardImage(card)));
   }
 
   function getSpriteStyle(card) {
@@ -957,11 +969,14 @@
           <p class="error-text" id="game-error"></p>
         </section>
         ${renderChatDrawerHtml()}
+        ${matchResult ? `<section class="result-overlay"><div class="result-card"><span class="result-kicker">MATCH COMPLETE</span><h2>${matchResult.winner_id === Number(player.id) ? "You took the table." : `${esc((state.players || []).find((item) => Number(item.id) === Number(matchResult.winner_id))?.name || "A player")} wins.`}</h2><p class="muted">${matchResult.winner_id === Number(player.id) ? "A clean finish. Ready for another round?" : "Good game. Your next hand starts here."}</p><div class="result-standings">${(state.finish_order || []).map((id, index) => { const item = (state.players || []).find((entry) => Number(entry.id) === Number(id)); return `<div><span>#${index + 1}</span><strong>${esc(item?.name || (Number(id) === Number(player.id) ? player.name : "Player"))}</strong></div>`; }).join("") || `<div><span>★</span><strong>Result recorded</strong></div>`}</div><div class="result-actions"><button class="primary-button wide" id="result-replay" type="button">Play again <span>→</span></button><button class="secondary-button wide" id="result-home" type="button">Back to home</button></div></div></section>` : ""}
       </section>`;
 
     $("#chat-toggle-btn")?.addEventListener("click", toggleChatDrawer);
     attachChatEvents();
     $("#leave-game")?.addEventListener("click", leaveRoom);
+    $("#result-home")?.addEventListener("click", () => { matchResult = null; matchFinished = false; renderHome(); });
+    $("#result-replay")?.addEventListener("click", () => { matchResult = null; matchFinished = false; renderSetup(setupType); });
     app.querySelectorAll("[data-card]").forEach((button) => button.addEventListener("click", () => performAction("play", { card_id: button.dataset.card }, button)));
     $("#draw-button")?.addEventListener("click", () => performAction("draw"));
     $("#pass-button")?.addEventListener("click", () => performAction("pass"));
@@ -1019,7 +1034,8 @@
         matchFinished = true;
         hand = [];
         state.finished = true;
-        toast("You won the match!");
+        matchResult = { winner_id: Number(data.winner_id || player.id) };
+        toast(matchResult.winner_id === Number(player.id) ? "You won the match!" : "Match complete");
         setConnection("Match complete");
       } else {
         if (Array.isArray(data.hand)) {

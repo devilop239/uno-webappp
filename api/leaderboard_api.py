@@ -2,36 +2,27 @@
 """FastAPI endpoints for MongoDB leaderboard and player statistics."""
 
 from fastapi import APIRouter, HTTPException, Query
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 
-from services import leaderboard_service, stats_service, user_service
+from services import leaderboard_service, stats_service
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
 
 
 @router.get("", response_model=Dict[str, Any])
 async def get_leaderboard(
-    category: str = Query("points", description="Sorting field: points | wins | games"),
-    period: str = Query("all", description="Time filter: all | month | week | today"),
-    limit: int = Query(20, ge=1, le=100),
+    category: str = Query("points", description="Public board category"),
+    period: str = Query("all", description="Time filter: all | month | week"),
+    limit: int = Query(20, ge=1, le=50),
 ):
-    """
-    Get aggregated global player leaderboard directly from MongoDB.
-    Categories: points, wins, games
-    Periods: all, month, week, today
-    """
+    """Return a bounded public points leaderboard for the selected period."""
+    if category != "points":
+        raise HTTPException(status_code=400, detail="Only points leaderboard is available")
+    if period not in {"all", "week", "month"}:
+        raise HTTPException(status_code=400, detail="period must be all, week, or month")
     try:
-        top_players = await leaderboard_service.get_global_leaderboard(
-            category=category,
-            period=period,
-            limit=limit,
-        )
-        return {
-            "category": category,
-            "period": period,
-            "count": len(top_players),
-            "leaderboard": top_players,
-        }
+        top_players = leaderboard_service.get_global_leaderboard(period=period, limit=limit)
+        return {"category": "points", "period": period, "count": len(top_players), "leaderboard": top_players}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed querying leaderboard: {str(e)}")
 
