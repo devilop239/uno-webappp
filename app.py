@@ -41,44 +41,54 @@ logger = logging.getLogger("uno_webapp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan handler for initializing DB connections, SVG sprite sheets, and static file sync."""
+    """Lifespan handler for initializing DB connections and verifying static card sprite assets."""
     logger.info("Initializing UNO WebApp backend...")
     
-    # Ensure static SVG card sprite sheets are generated on app startup
-    try:
-        from scripts.build_svg_spritesheets import main as build_svg_spritesheets
-        build_svg_spritesheets()
-        logger.info("Static SVG card sprite sheets generated successfully.")
-    except Exception as e:
-        logger.warning("Failed ensuring static SVG card sprite sheets: %s", e)
+    regen_boot = os.getenv("REGEN_ASSETS_ON_BOOT", "false").lower() in ("true", "1", "yes")
+    if regen_boot:
+        logger.info("REGEN_ASSETS_ON_BOOT enabled; generating sprite sheets and syncing images...")
+        try:
+            from scripts.build_svg_spritesheets import main as build_svg_spritesheets
+            build_svg_spritesheets()
+            logger.info("Static card sprite sheets generated successfully.")
+        except Exception as e:
+            logger.warning("Failed generating static card sprite sheets: %s", e)
 
-    # Sync static images to front-end/public/images for local frontend serving
-    try:
-        src_images = "images"
-        dest_images = os.path.join("front-end", "public", "images")
-        if os.path.exists(src_images):
-            shutil.copytree(
-                src_images,
-                dest_images,
-                dirs_exist_ok=True,
-                ignore=shutil.ignore_patterns(
-                    "*.py",
-                    "*.pyc",
-                    "*.sh",
-                    "__pycache__",
-                ),
+        try:
+            src_images = "images"
+            dest_images = os.path.join("front-end", "public", "images")
+            if os.path.exists(src_images):
+                shutil.copytree(
+                    src_images,
+                    dest_images,
+                    dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns(
+                        "*.py",
+                        "*.pyc",
+                        "*.sh",
+                        "__pycache__",
+                    ),
+                )
+                for root, _, files in os.walk(dest_images):
+                    for filename in files:
+                        if filename.endswith((".py", ".pyc", ".sh")):
+                            try:
+                                os.remove(os.path.join(root, filename))
+                            except OSError:
+                                logger.debug("Could not remove stale synced file: %s", filename)
+                logger.info("Synced static images to front-end/public/images")
+        except Exception as e:
+            logger.warning("Failed to sync images to front-end/public/images: %s", e)
+    else:
+        manifest_path = os.path.join("front-end", "sprites_manifest.json")
+        sprite_sample = os.path.join("images", "sprites", "classic_playable.webp")
+        if os.path.exists(manifest_path) and os.path.exists(sprite_sample):
+            logger.info("Static WebP card sprite sheets and manifest verified.")
+        else:
+            logger.warning(
+                "Static WebP sprite assets or manifest missing! "
+                "Run 'python scripts/build_svg_spritesheets.py' to generate sprite assets."
             )
-            # Remove source scripts copied by older startup versions.
-            for root, _, files in os.walk(dest_images):
-                for filename in files:
-                    if filename.endswith((".py", ".pyc", ".sh")):
-                        try:
-                            os.remove(os.path.join(root, filename))
-                        except OSError:
-                            logger.debug("Could not remove stale synced file: %s", filename)
-            logger.info("Synced static images to front-end/public/images")
-    except Exception as e:
-        logger.warning("Failed to sync images to front-end/public/images: %s", e)
 
     db = get_database()
     if db is not None:

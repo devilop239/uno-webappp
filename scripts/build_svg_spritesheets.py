@@ -138,9 +138,21 @@ def create_webp_spritesheet(card_items: list, sheet_width: int, sheet_height: in
         canvas.save(out_path, "WEBP", quality=92, method=6)
 
 
+def clean_legacy_svgs():
+    for d in [SPRITES_OUT_DIR, PUBLIC_SPRITES_OUT_DIR]:
+        if d.exists():
+            for svg_file in d.glob("*.svg"):
+                try:
+                    svg_file.unlink()
+                    print(f"Removed legacy SVG sprite sheet: {svg_file.name}")
+                except Exception as e:
+                    print(f"Failed removing {svg_file.name}: {e}")
+
+
 def main():
     SPRITES_OUT_DIR.mkdir(parents=True, exist_ok=True)
     PUBLIC_SPRITES_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    clean_legacy_svgs()
 
     manifest_data = {}
 
