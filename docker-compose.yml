@@ -3,5 +3,7 @@ services:
     build: .
     # image: your-registry/uno-bot:latest
     restart: unless-stopped
+    environment:
+      - RUN_MODE=bot
     volumes:
       - ./data:/app/data

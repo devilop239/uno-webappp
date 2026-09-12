@@ -271,10 +271,12 @@
       if (selectedMode !== "classic" && selectedDeck === "anime") {
         selectedDeck = "normal";
       }
+      preloadActiveDeckSprites();
       renderSetup(type);
     });
     app.querySelectorAll("[data-deck]:not([disabled])").forEach((button) => button.addEventListener("click", () => {
       selectedDeck = button.dataset.deck;
+      preloadActiveDeckSprites();
       renderSetup(type);
     }));
     $("[data-back]").addEventListener("click", (event) => { event.preventDefault(); renderHome(); });
@@ -441,7 +443,7 @@
       if (message.event === "bot_thinking") {
         botThinking = message;
         setConnection(`${message.bot_name} is thinking…`);
-        renderCurrent();
+        await safeRenderCurrent();
         return;
       }
       if (message.event === "bot_turn" || message.state) botThinking = null;
@@ -457,10 +459,11 @@
         await refreshHand();
         preloadGameAssets();
         if (screen === "lobby" && state.started) enterGame();
-        else renderCurrent();
+        else await safeRenderCurrent();
       }
       if (message.event === "action_rejected") {
         actionBusy = false;
+        activeFlyPromise = null;
         toast(message.detail || "That move is not available.");
         renderCurrent();
       }
@@ -477,12 +480,76 @@
     } catch (_) {}
   }
 
+  let activeFlyPromise = null;
+
+  function triggerOptimisticFly(targetElement) {
+    if (!targetElement) return Promise.resolve();
+    targetElement.classList.add("optimistic-fly");
+    
+    let resolved = false;
+    activeFlyPromise = new Promise((resolve) => {
+      const done = () => {
+        if (resolved) return;
+        resolved = true;
+        targetElement.removeEventListener("animationend", done);
+        if (activeFlyPromise === selfPromise) {
+          activeFlyPromise = null;
+        }
+        resolve();
+      };
+      const selfPromise = activeFlyPromise;
+      targetElement.addEventListener("animationend", done, { once: true });
+      setTimeout(done, 270);
+    });
+    return activeFlyPromise;
+  }
+
+  async function safeRenderCurrent() {
+    if (activeFlyPromise) {
+      await activeFlyPromise;
+    }
+    renderCurrent();
+  }
+
   function renderCurrent() {
     if (screen === "lobby") renderLobby();
     if (screen === "game") renderGame();
   }
 
   let spriteManifest = null;
+  const preloadedSheetUrls = new Set();
+
+  function activeDeckKey() {
+    const mode = state?.mode || selectedMode || "classic";
+    const style = state?.deck_style || selectedDeck || "normal";
+    if (mode === "no_mercy") return "no_mercy";
+    if (mode === "rainbow") return "rainbow";
+    if (mode === "classic" && style === "anime") return "anime_deck";
+    return "classic";
+  }
+
+  function preloadActiveDeckSprites(targetDeckKey = null) {
+    if (!spriteManifest) return;
+    const deckKey = targetDeckKey || activeDeckKey();
+    let deckMeta = spriteManifest[deckKey];
+    if (!deckMeta && spriteManifest.classic) {
+      deckMeta = spriteManifest.classic;
+    }
+    if (!deckMeta) return;
+
+    const urlsToFetch = [];
+    if (deckMeta.playable_sheet_path) urlsToFetch.push(assetPath(deckMeta.playable_sheet_path + "?v=240x360_v2"));
+    if (deckMeta.non_playable_sheet_path) urlsToFetch.push(assetPath(deckMeta.non_playable_sheet_path + "?v=240x360_v2"));
+    if (deckMeta.sheet_path) urlsToFetch.push(assetPath(deckMeta.sheet_path + "?v=240x360_v2"));
+
+    urlsToFetch.forEach((url) => {
+      if (!preloadedSheetUrls.has(url)) {
+        preloadedSheetUrls.add(url);
+        const img = new Image();
+        img.src = url;
+      }
+    });
+  }
 
   async function loadSpriteManifest() {
     try {
@@ -495,27 +562,14 @@
       }
       if (res.ok) {
         spriteManifest = await res.json();
-        preloadAllSprites();
+        preloadActiveDeckSprites("classic");
         if (screen === "game") renderGame();
       }
     } catch (_) {}
   }
 
-  function preloadAllSprites() {
-    if (!spriteManifest) return;
-    const urls = new Set();
-    Object.values(spriteManifest).forEach((deckMeta) => {
-      if (deckMeta.playable_sheet_path) urls.add(assetPath(deckMeta.playable_sheet_path + "?v=240x360_v2"));
-      if (deckMeta.non_playable_sheet_path) urls.add(assetPath(deckMeta.non_playable_sheet_path + "?v=240x360_v2"));
-      if (deckMeta.sheet_path) urls.add(assetPath(deckMeta.sheet_path + "?v=240x360_v2"));
-    });
-    urls.forEach((url) => {
-      const img = new Image();
-      img.src = url;
-    });
-  }
-
   function preloadGameAssets() {
+    preloadActiveDeckSprites();
     if (state && state.last_card) {
       const img = new Image();
       img.src = cardImage(state.last_card);
@@ -903,8 +957,9 @@
   async function performAction(action, extra = {}, targetElement = null) {
     if (actionBusy || botThinking || !room) return;
     actionBusy = true;
+    let flyPromise = null;
     if (targetElement && action === "play") {
-      targetElement.classList.add("optimistic-fly");
+      flyPromise = triggerOptimisticFly(targetElement);
     } else {
       renderGame();
     }
@@ -921,14 +976,23 @@
         toast("You won the match!");
         setConnection("Match complete");
       } else {
-        await refreshHand();
+        if (Array.isArray(data.hand)) {
+          hand = data.hand;
+          preloadGameAssets();
+        } else {
+          await refreshHand();
+        }
       }
     } catch (error) {
+      activeFlyPromise = null;
       if (targetElement) targetElement.classList.remove("optimistic-fly");
       const errorTarget = $("#game-error");
       if (errorTarget) errorTarget.textContent = error.message;
     } finally {
       actionBusy = false;
+      if (flyPromise) {
+        await flyPromise;
+      }
       renderCurrent();
     }
   }

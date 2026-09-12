@@ -206,6 +206,17 @@ The image compiles locales during build and runs as user `nobody`.
 
 ---
 
+## Deployment Modes (Docker / Render)
+
+This repository can be deployed either as a **Standalone Web Application** or as a **Telegram Bot** using the same Docker image. The mode is selected via the `RUN_MODE` environment variable:
+
+- **`RUN_MODE=webapp`** *(Default)*: Launches the FastAPI web application engine via `uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}`.
+  - **Render Web Service**: Set `RUN_MODE=webapp` in your Render Web Service environment settings. Render automatically injects the `$PORT` environment variable.
+- **`RUN_MODE=bot`**: Launches the Telegram bot poller via `python bot.py`.
+  - **Render Background Worker**: Set `RUN_MODE=bot` when deploying as a background worker.
+
+---
+
 ## Adding a new deck style
 
 1. Add sticker `file_id` maps in a new module (e.g. `neon_assets.py`) with `normal` and `not_playable` dicts (same keys as `str(card)`, e.g. `r_5`, `draw_four`).

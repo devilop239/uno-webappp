@@ -615,10 +615,14 @@ async def perform_action(req: ActionRequest):
     schedule_bot_turns(game)
     state = serialize_game_state(game)
 
+    acting_player = next((p for p in game.players if p.user.id == req.user_id), cp)
+    hand_data = serialize_player_hand(acting_player) if acting_player else []
+
     return {
         "status": "success",
         "action": action,
         "state": state,
+        "hand": hand_data,
         "finished": bool(locals().get("finished", False)),
         "winner_id": int(req.user_id) if locals().get("finished", False) else None,
     }

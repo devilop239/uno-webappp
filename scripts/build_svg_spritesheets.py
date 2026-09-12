@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Professional SVG Card Sprite Sheet Generator for UNO WebApp.
-Generates static 1-to-1 SVG sprite sheets for Playable and Non-Playable cards for all modes:
-- Classic (classic_playable.svg, classic_non_playable.svg)
-- Anime (anime_playable.svg, anime_non_playable.svg)
-- No Mercy (no_mercy_playable.svg, no_mercy_non_playable.svg)
-- Rainbow (rainbow_playable.svg, rainbow_non_playable.svg)
+Composited WebP Card Sprite Sheet Generator for UNO WebApp.
+Generates static 1-to-1 WebP sprite sheets for Playable and Non-Playable cards for all modes:
+- Classic (classic_playable.webp, classic_non_playable.webp)
+- Anime (anime_deck_playable.webp, anime_deck_non_playable.webp)
+- No Mercy (no_mercy_playable.webp, no_mercy_non_playable.webp)
+- Rainbow (rainbow_playable.webp, rainbow_non_playable.webp)
 
-Generates and updates front-end/sprites_manifest.json with SVG sheet paths and coordinate mappings.
+Generates and updates front-end/sprites_manifest.json with sheet paths and coordinate mappings.
 """
 
 import os
 import json
-import base64
 from pathlib import Path
+from PIL import Image
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 IMAGES_DIR = BASE_DIR / "images"
@@ -118,24 +118,24 @@ def get_card_items(source_dir: Path, custom_map: dict | None, explicit_order: li
     return card_items
 
 
-def create_svg_spritesheet(card_items: list, sheet_width: int, sheet_height: int) -> str:
-    lines = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{sheet_width}" height="{sheet_height}" viewBox="0 0 {sheet_width} {sheet_height}">'
-    ]
+def create_webp_spritesheet(card_items: list, sheet_width: int, sheet_height: int, out_paths: list[Path]):
+    canvas = Image.new("RGBA", (sheet_width, sheet_height), (0, 0, 0, 0))
     for idx, (card_id, file_path) in enumerate(card_items):
         col = idx % COLS_PER_ROW
         row = idx // COLS_PER_ROW
         x = col * TILE_WIDTH
         y = row * TILE_HEIGHT
         
-        with open(file_path, "rb") as f:
-            data = f.read()
-        mime = "image/png" if file_path.suffix.lower() == ".png" else "image/webp"
-        b64 = base64.b64encode(data).decode("ascii")
-        href = f"data:{mime};base64,{b64}"
-        lines.append(f'  <image id="{card_id}" x="{x}" y="{y}" width="{TILE_WIDTH}" height="{TILE_HEIGHT}" href="{href}"/>')
-    lines.append("</svg>")
-    return "\n".join(lines)
+        try:
+            with Image.open(file_path) as card_img:
+                card_resized = card_img.convert("RGBA").resize((TILE_WIDTH, TILE_HEIGHT), Image.Resampling.LANCZOS)
+                canvas.paste(card_resized, (x, y), card_resized)
+        except Exception as e:
+            print(f"Error pasting card {card_id} from {file_path}: {e}")
+
+    for out_path in out_paths:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        canvas.save(out_path, "WEBP", quality=92, method=6)
 
 
 def main():
@@ -158,28 +158,20 @@ def main():
         sheet_width = COLS_PER_ROW * TILE_WIDTH
         sheet_height = rows * TILE_HEIGHT
 
-        # 1. Playable SVG Sprite Sheet
-        playable_svg_name = f"{deck_name}_playable.svg"
-        playable_svg_path = SPRITES_OUT_DIR / playable_svg_name
-        public_playable_svg_path = PUBLIC_SPRITES_OUT_DIR / playable_svg_name
+        # 1. Playable WebP Sprite Sheet
+        playable_webp_name = f"{deck_name}_playable.webp"
+        playable_webp_path = SPRITES_OUT_DIR / playable_webp_name
+        public_playable_webp_path = PUBLIC_SPRITES_OUT_DIR / playable_webp_name
         
-        svg_content_playable = create_svg_spritesheet(playable_items, sheet_width, sheet_height)
-        with open(playable_svg_path, "w", encoding="utf-8") as f:
-            f.write(svg_content_playable)
-        with open(public_playable_svg_path, "w", encoding="utf-8") as f:
-            f.write(svg_content_playable)
+        create_webp_spritesheet(playable_items, sheet_width, sheet_height, [playable_webp_path, public_playable_webp_path])
 
-        # 2. Non-Playable SVG Sprite Sheet
-        non_playable_svg_name = f"{deck_name}_non_playable.svg"
-        non_playable_svg_path = SPRITES_OUT_DIR / non_playable_svg_name
-        public_non_playable_svg_path = PUBLIC_SPRITES_OUT_DIR / non_playable_svg_name
+        # 2. Non-Playable WebP Sprite Sheet
+        non_playable_webp_name = f"{deck_name}_non_playable.webp"
+        non_playable_webp_path = SPRITES_OUT_DIR / non_playable_webp_name
+        public_non_playable_webp_path = PUBLIC_SPRITES_OUT_DIR / non_playable_webp_name
 
         items_for_non_playable = non_playable_items if non_playable_items else playable_items
-        svg_content_non_playable = create_svg_spritesheet(items_for_non_playable, sheet_width, sheet_height)
-        with open(non_playable_svg_path, "w", encoding="utf-8") as f:
-            f.write(svg_content_non_playable)
-        with open(public_non_playable_svg_path, "w", encoding="utf-8") as f:
-            f.write(svg_content_non_playable)
+        create_webp_spritesheet(items_for_non_playable, sheet_width, sheet_height, [non_playable_webp_path, public_non_playable_webp_path])
 
         # Build card coordinate lookup
         cards_coords = {}
@@ -195,9 +187,9 @@ def main():
 
         manifest_data[deck_name] = {
             "deck": deck_name,
-            "playable_sheet_path": f"/images/sprites/{playable_svg_name}",
-            "non_playable_sheet_path": f"/images/sprites/{non_playable_svg_name}",
-            "sheet_path": f"/images/sprites/{playable_svg_name}",
+            "playable_sheet_path": f"/images/sprites/{playable_webp_name}",
+            "non_playable_sheet_path": f"/images/sprites/{non_playable_webp_name}",
+            "sheet_path": f"/images/sprites/{playable_webp_name}",
             "cols": COLS_PER_ROW,
             "rows": rows,
             "tile_width": TILE_WIDTH,
@@ -207,7 +199,7 @@ def main():
             "cards": cards_coords,
         }
 
-        print(f"Generated SVG sprite sheets for {deck_name}: {playable_svg_name}, {non_playable_svg_name}")
+        print(f"Generated WebP sprite sheets for {deck_name}: {playable_webp_name}, {non_playable_webp_name}")
 
     with open(MANIFEST_OUT, "w", encoding="utf-8") as f:
         json.dump(manifest_data, f, indent=2)
@@ -218,7 +210,7 @@ def main():
     with open(public_manifest, "w", encoding="utf-8") as f:
         json.dump(manifest_data, f, indent=2)
 
-    print("SVG Sprite sheets build complete!")
+    print("WebP Sprite sheets build complete!")
 
 
 if __name__ == "__main__":

@@ -16,9 +16,13 @@ RUN         --mount=type=cache,sharing=locked,target=/root/.cache,id=home-cache-
 
 COPY        --chown=nobody:nogroup . .
 
+RUN         chmod +x /app/entrypoint.sh
+
 USER        nobody
 
 RUN         cd locales && \
             find . -maxdepth 2 -type d -name 'LC_MESSAGES' -exec ash -c 'msgfmt {}/unobot.po -o {}/unobot.mo' \;
 
-ENTRYPOINT  [ "python", "bot.py" ]
+ENV         RUN_MODE=webapp
+
+ENTRYPOINT  [ "/app/entrypoint.sh" ]
