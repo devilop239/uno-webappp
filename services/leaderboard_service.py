@@ -3,6 +3,7 @@
 
 import html
 import logging
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from config import SEASON_ID
@@ -11,6 +12,9 @@ from db.mongo_client import get_database
 from services.time_buckets import month_bucket, week_bucket
 
 logger = logging.getLogger(__name__)
+
+_PUBLIC_CACHE: Dict[Tuple[str, int], Tuple[float, List[Dict[str, Any]]]] = {}
+_PUBLIC_CACHE_TTL = 45.0
 
 
 def _display_name(row: Dict[str, Any]) -> str:
@@ -79,6 +83,41 @@ def _top_by(
 
 def top_total(limit: int = 10) -> List[Dict[str, Any]]:
     return _top_by("total_points", limit=limit)
+
+
+def get_global_leaderboard(category: str = "points", period: str = "all", limit: int = 20) -> List[Dict[str, Any]]:
+    """Return a bounded public points board with a short process-local cache."""
+    limit = max(1, min(int(limit), 50))
+    period = {"all": "all", "week": "week", "month": "month"}.get(period, "all")
+    cache_key = (period, limit)
+    cached = _PUBLIC_CACHE.get(cache_key)
+    if cached and time.monotonic() - cached[0] < _PUBLIC_CACHE_TTL:
+        return [dict(row) for row in cached[1]]
+
+    if period == "week":
+        rows = top_weekly(limit)
+        points_key = "weekly_points"
+    elif period == "month":
+        rows = top_monthly(limit)
+        points_key = "monthly_points"
+    else:
+        rows = top_total(limit)
+        points_key = "total_points"
+
+    public_rows = []
+    for index, row in enumerate(rows, 1):
+        public_rows.append({
+            "rank": index,
+            "user_id": row.get("user_id", row.get("_id")),
+            "name": _display_name(row),
+            "points": int(row.get(points_key) or 0),
+        })
+    _PUBLIC_CACHE[cache_key] = (time.monotonic(), public_rows)
+    return [dict(row) for row in public_rows]
+
+
+def invalidate_public_leaderboard_cache() -> None:
+    _PUBLIC_CACHE.clear()
 
 
 def top_global_points(limit: int = 10) -> List[Dict[str, Any]]:

@@ -230,7 +230,9 @@ def finalize_match(snapshot: Dict[str, Any]) -> None:
                 )
             else:
                 _award_completed_match(db, match_id, participants, finish_order)
-            
+            from services.leaderboard_service import invalidate_public_leaderboard_cache
+            invalidate_public_leaderboard_cache()
+
             # Apply abandon penalty to the leaver
             leaver_id = None
             for pid in participants:
@@ -260,6 +262,8 @@ def finalize_match(snapshot: Dict[str, Any]) -> None:
     else:
         _award_completed_match(db, match_id, participants, finish_order)
 
+    from services.leaderboard_service import invalidate_public_leaderboard_cache
+    invalidate_public_leaderboard_cache()
     _emit_match_audit(db, match_id, doc, participants, end_reason)
 
 

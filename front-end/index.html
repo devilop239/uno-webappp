@@ -11,9 +11,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
-    <!-- On-Demand WebP Sprite Sheet Preloading (Classic default) -->
-    <link rel="preload" as="image" type="image/webp" href="/images/sprites/classic_playable.webp?v=240x360_v2" />
-    <link rel="preload" as="image" type="image/webp" href="/images/sprites/classic_non_playable.webp?v=240x360_v2" />
+    <!-- Keep the default manifest sheet warm; other decks load on demand. -->
+    <link rel="preload" as="image" type="image/webp" href="/images/sprites/classic.webp?v=240x360_v2" />
   </head>
   <body>
     <div class="app-shell">
