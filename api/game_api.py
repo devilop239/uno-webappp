@@ -106,7 +106,7 @@ async def _trigger_bot_turns_if_needed(game):
         steps += 1
 
         # Broadcast thinking state to room
-        think_time = round(random.uniform(3.0, 4.8), 1)
+        think_time = round(random.uniform(0.6, 1.0), 1)
         await ws_manager.broadcast_to_room(str(game.chat.id), {
             "event": "bot_thinking",
             "bot_id": cp.user.id,

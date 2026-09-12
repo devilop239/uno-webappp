@@ -60,20 +60,15 @@
   }
 
   function preloadGameAssets() {
+    if (spriteManifest) {
+      preloadImage(assetPath("/images/sprites/classic.webp"));
+      preloadImage(assetPath("/images/sprites/anime_deck.webp"));
+      preloadImage(assetPath("/images/sprites/no_mercy.webp"));
+    }
     if (Array.isArray(hand)) {
-      const deck = state.deck_style === "anime" ? "anime_deck" : "classic";
       hand.forEach((card) => {
         if (!card) return;
         preloadImage(cardImage(card));
-        if (card.id) {
-          if (deck === "classic") {
-            preloadImage(assetPath(`/images/classic/playble/${card.id}.webp`));
-            preloadImage(assetPath(`/images/classic/non_playble/${card.id}.webp`));
-          } else {
-            preloadImage(assetPath(`/images/anime_deck/playable/${card.id}.webp`));
-            preloadImage(assetPath(`/images/anime_deck/not_playable/${card.id}.webp`));
-          }
-        }
       });
     }
     if (state.top_card) {
@@ -441,6 +436,35 @@
     if (screen === "game") renderGame();
   }
 
+  let spriteManifest = null;
+
+  async function loadSpriteManifest() {
+    try {
+      const res = await fetch(assetPath("/sprites_manifest.json"));
+      if (res.ok) {
+        spriteManifest = await res.json();
+      }
+    } catch (_) {}
+  }
+
+  function getSpriteStyle(card) {
+    if (!card || !card.id || !spriteManifest) return null;
+    let deckKey = state.deck_style === "anime" ? "anime_deck" : "classic";
+    if (state.mode === "no_mercy") deckKey = "no_mercy";
+
+    let deckMeta = spriteManifest[deckKey];
+    if ((!deckMeta || !deckMeta.cards || !deckMeta.cards[card.id]) && spriteManifest.classic?.cards?.[card.id]) {
+      deckMeta = spriteManifest.classic;
+    }
+    if (!deckMeta || !deckMeta.cards || !deckMeta.cards[card.id]) return null;
+
+    const pos = deckMeta.cards[card.id];
+    const xPct = (pos.col / (deckMeta.cols - 1)) * 100;
+    const yPct = (pos.row / (deckMeta.rows - 1)) * 100;
+    const sheetUrl = assetPath(deckMeta.sheet_path);
+    return `background-image: url('${sheetUrl}'); background-position: ${xPct.toFixed(2)}% ${yPct.toFixed(2)}%; background-size: ${(deckMeta.cols * 100).toFixed(0)}% ${(deckMeta.rows * 100).toFixed(0)}%;`;
+  }
+
   function cardImage(card) {
     if (card && card.image) {
       return assetPath(card.image);
@@ -499,7 +523,13 @@
           <div class="opponents">${opponents.length ? opponents.map(opponentMarkup).join("") : '<span class="subtle">Waiting for opponents…</span>'}</div>
           <div class="board">
             <img class="pile" src="${assetPath("/images/card_back.png")}" alt="Draw pile" />
-            ${state.last_card ? `<img class="discard-card" alt="${esc(cardLabel(state.last_card))}" src="${esc(cardImage(state.last_card))}" />` : '<span class="subtle">Dealing…</span>'}
+            ${state.last_card ? (() => {
+              const spriteStyle = getSpriteStyle(state.last_card);
+              if (spriteStyle) {
+                return `<div class="discard-card sprite-card" style="${spriteStyle}" aria-label="${esc(cardLabel(state.last_card))}"></div>`;
+              }
+              return `<img class="discard-card" alt="${esc(cardLabel(state.last_card))}" src="${esc(cardImage(state.last_card))}" />`;
+            })() : '<span class="subtle">Dealing…</span>'}
           </div>
           ${botThinking ? `<div class="bot-thinking">${avatarMarkup({ id: botThinking.bot_id, name: botThinking.bot_name, is_bot: true })}<span><strong>${esc(botThinking.bot_name)}</strong> is thinking…</span><i></i></div>` : ""}
         </div>
@@ -508,6 +538,10 @@
           <div class="hand">
             ${hand.length ? hand.map((card) => {
               const playable = Boolean(card.playable && canAct && !isBlocked);
+              const spriteStyle = getSpriteStyle(card);
+              if (spriteStyle) {
+                return `<button class="card-button sprite-card ${playable ? "playable" : ""}" style="${spriteStyle}" data-card="${esc(card.id)}" ${playable ? "" : "disabled"} aria-label="Play ${esc(cardLabel(card))}"></button>`;
+              }
               return `<button class="card-button ${playable ? "playable" : ""}" data-card="${esc(card.id)}" ${playable ? "" : "disabled"} aria-label="Play ${esc(cardLabel(card))}"><img src="${esc(cardImage(card))}" alt="${esc(cardLabel(card))}" /></button>`;
             }).join("") : '<p class="empty-hand">Your cards will appear here.</p>'}
           </div>
@@ -521,7 +555,7 @@
       </section>`;
 
     $("#leave-game")?.addEventListener("click", leaveRoom);
-    app.querySelectorAll("[data-card]").forEach((button) => button.addEventListener("click", () => performAction("play", { card_id: button.dataset.card })));
+    app.querySelectorAll("[data-card]").forEach((button) => button.addEventListener("click", () => performAction("play", { card_id: button.dataset.card }, button)));
     $("#draw-button")?.addEventListener("click", () => performAction("draw"));
     $("#pass-button")?.addEventListener("click", () => performAction("pass"));
     if (myTurn && !botThinking) {
@@ -559,10 +593,14 @@
     }));
   }
 
-  async function performAction(action, extra = {}) {
+  async function performAction(action, extra = {}, targetElement = null) {
     if (actionBusy || botThinking || !room) return;
     actionBusy = true;
-    renderGame();
+    if (targetElement && action === "play") {
+      targetElement.classList.add("optimistic-fly");
+    } else {
+      renderGame();
+    }
     try {
       const data = await api("/api/game/action", {
         method: "POST",
@@ -579,11 +617,12 @@
         await refreshHand();
       }
     } catch (error) {
+      if (targetElement) targetElement.classList.remove("optimistic-fly");
       const errorTarget = $("#game-error");
       if (errorTarget) errorTarget.textContent = error.message;
     } finally {
       actionBusy = false;
-      renderGame();
+      renderCurrent();
     }
   }
 
@@ -617,5 +656,6 @@
   }
   if (!player) showNameModal();
   else renderHome();
+  loadSpriteManifest();
   loadModes().then(() => { if (screen === "home") renderHome(); });
 })();

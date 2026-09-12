@@ -38,9 +38,16 @@ logger = logging.getLogger("uno_webapp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan handler for initializing DB connections, assets sync, and cleanup."""
+    """Lifespan handler for initializing DB connections, assets sync, sprite sheets, and cleanup."""
     logger.info("Initializing UNO WebApp backend...")
     
+    # Build card sprite sheets for ready decks on app startup
+    try:
+        from scripts.build_spritesheets import main as build_spritesheets
+        build_spritesheets()
+    except Exception as e:
+        logger.warning("Failed to auto-generate sprite sheets: %s", e)
+
     # Sync static images to front-end/public/images for local frontend serving
     try:
         src_images = "images"
