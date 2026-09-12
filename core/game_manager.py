@@ -322,13 +322,6 @@ class GameManager(object):
                 "participant_ids": list(game.participant_ids),
                 "finish_order": list(game.finish_order),
                 "end_reason": reason,
-                "abandon_user_id": abandon_user_id,
-                "team_mode": bool(getattr(game, "is_team_mode", False)),
-                "team_size": int(getattr(game, "team_size", 0) or 0),
-                "team_members": getattr(game, "team_members", {"A": [], "B": []}),
-                "team_names": getattr(game, "team_names", {"A": "", "B": ""}),
-                "winning_team_id": getattr(game, "last_winning_team_id", None),
-                "team_mvp_user_id": (getattr(game, "rematch_payload", {}) or {}).get("mvp_user_id"),
             }
 
         for player_in_game in players_in_game:

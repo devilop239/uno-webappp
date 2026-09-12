@@ -203,6 +203,28 @@
     setupType = type;
     const isBot = type === "bot";
     const selected = modeFor();
+
+    if (selectedMode !== "classic" && selectedDeck === "anime") {
+      selectedDeck = "normal";
+    }
+
+    let deckGridHtml = "";
+    if (selectedMode === "no_mercy") {
+      deckGridHtml = `
+        <button type="button" class="deck-choice active" disabled style="opacity:0.95; cursor:default;"><strong>No Mercy deck</strong><small>Exclusive Brutal Cards</small></button>`;
+    } else if (selectedMode === "rainbow") {
+      deckGridHtml = `
+        <button type="button" class="deck-choice active" disabled style="opacity:0.95; cursor:default;"><strong>Rainbow deck</strong><small>Exclusive Spectrum Cards</small></button>`;
+    } else if (selectedMode === "classic") {
+      deckGridHtml = `
+        <button type="button" class="deck-choice ${selectedDeck === "normal" ? "active" : ""}" data-deck="normal"><strong>Normal deck</strong><small>Original UNO artwork</small></button>
+        <button type="button" class="deck-choice ${selectedDeck === "anime" ? "active" : ""}" data-deck="anime"><strong>Anime deck</strong><small>Anime card artwork</small></button>`;
+    } else {
+      deckGridHtml = `
+        <button type="button" class="deck-choice active" data-deck="normal"><strong>Normal deck</strong><small>Original UNO artwork</small></button>
+        <button type="button" class="deck-choice disabled" disabled style="opacity:0.5; cursor:not-allowed;" title="Anime deck is available in Classic mode only"><strong>Anime deck</strong><small>Classic mode only</small></button>`;
+    }
+
     app.innerHTML = `
       <section class="screen-header">
         <a class="back-link" href="#" data-back>← Back to modes</a>
@@ -217,8 +239,7 @@
         </select>
         <label class="choice-label">CARD DECK</label>
         <div class="deck-grid">
-          <button type="button" class="deck-choice ${selectedDeck === "normal" ? "active" : ""}" data-deck="normal"><strong>Normal deck</strong><small>Original UNO artwork</small></button>
-          <button type="button" class="deck-choice ${selectedDeck === "anime" ? "active" : ""}" data-deck="anime"><strong>Anime deck</strong><small>Anime card artwork</small></button>
+          ${deckGridHtml}
         </div>
         ${isBot ? `
           <label class="choice-label" for="bot-count">OPPONENTS</label>
@@ -236,9 +257,12 @@
 
     $("#mode-select").addEventListener("change", (event) => {
       selectedMode = event.target.value;
+      if (selectedMode !== "classic" && selectedDeck === "anime") {
+        selectedDeck = "normal";
+      }
       renderSetup(type);
     });
-    app.querySelectorAll("[data-deck]").forEach((button) => button.addEventListener("click", () => {
+    app.querySelectorAll("[data-deck]:not([disabled])").forEach((button) => button.addEventListener("click", () => {
       selectedDeck = button.dataset.deck;
       renderSetup(type);
     }));
@@ -443,14 +467,48 @@
       const res = await fetch(assetPath("/sprites_manifest.json"));
       if (res.ok) {
         spriteManifest = await res.json();
+        preloadAllSprites();
       }
     } catch (_) {}
   }
 
+  function preloadAllSprites() {
+    if (!spriteManifest) return;
+    const urls = new Set();
+    Object.values(spriteManifest).forEach((deckMeta) => {
+      if (deckMeta.playable_sheet_path) urls.add(assetPath(deckMeta.playable_sheet_path + "?v=240x360_v2"));
+      if (deckMeta.non_playable_sheet_path) urls.add(assetPath(deckMeta.non_playable_sheet_path + "?v=240x360_v2"));
+      if (deckMeta.sheet_path) urls.add(assetPath(deckMeta.sheet_path + "?v=240x360_v2"));
+    });
+    urls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+  }
+
+  function preloadGameAssets() {
+    if (state && state.last_card) {
+      const img = new Image();
+      img.src = cardImage(state.last_card);
+    }
+    if (hand && hand.length) {
+      hand.forEach((card) => {
+        const img = new Image();
+        img.src = cardImage(card);
+      });
+    }
+  }
+
   function getSpriteStyle(card) {
     if (!card || !card.id || !spriteManifest) return null;
-    let deckKey = state.deck_style === "anime" ? "anime_deck" : "classic";
-    if (state.mode === "no_mercy") deckKey = "no_mercy";
+    let deckKey = "classic";
+    if (state.mode === "no_mercy") {
+      deckKey = "no_mercy";
+    } else if (state.mode === "rainbow") {
+      deckKey = "rainbow";
+    } else if ((!state.mode || state.mode === "classic") && state.deck_style === "anime") {
+      deckKey = "anime_deck";
+    }
 
     let deckMeta = spriteManifest[deckKey];
     if ((!deckMeta || !deckMeta.cards || !deckMeta.cards[card.id]) && spriteManifest.classic?.cards?.[card.id]) {
@@ -459,17 +517,23 @@
     if (!deckMeta || !deckMeta.cards || !deckMeta.cards[card.id]) return null;
 
     const pos = deckMeta.cards[card.id];
-    const xPct = (pos.col / (deckMeta.cols - 1)) * 100;
-    const yPct = (pos.row / (deckMeta.rows - 1)) * 100;
-    const sheetUrl = assetPath(deckMeta.sheet_path);
-    return `background-image: url('${sheetUrl}'); background-position: ${xPct.toFixed(2)}% ${yPct.toFixed(2)}%; background-size: ${(deckMeta.cols * 100).toFixed(0)}% ${(deckMeta.rows * 100).toFixed(0)}%;`;
+    const cols = deckMeta.cols || 10;
+    const rows = deckMeta.rows || 6;
+    const xPct = cols > 1 ? (pos.col / (cols - 1)) * 100 : 0;
+    const yPct = rows > 1 ? (pos.row / (rows - 1)) * 100 : 0;
+    const isPlayable = card.playable !== false;
+    const sheetPath = isPlayable
+      ? (deckMeta.playable_sheet_path || deckMeta.sheet_path)
+      : (deckMeta.non_playable_sheet_path || deckMeta.sheet_path);
+    const sheetUrl = assetPath(sheetPath + "?v=240x360_v2");
+    return `background-image: url('${sheetUrl}'); background-position: ${xPct.toFixed(6)}% ${yPct.toFixed(6)}%; background-size: ${cols * 100}% ${rows * 100}%;`;
   }
 
   function cardImage(card) {
     if (card && card.image) {
       return assetPath(card.image);
     }
-    const deck = state.deck_style === "anime" ? "anime_deck" : "classic";
+    const deck = ((!state.mode || state.mode === "classic") && state.deck_style === "anime") ? "anime_deck" : "classic";
     const playState = deck === "classic"
       ? (card.playable ? "playble" : "non_playble")
       : (card.playable ? "playable" : "not_playable");
@@ -489,6 +553,8 @@
     if (card.special === "colorchooser") return "Wild";
     if (card.special === "draw_eight") return "Wild +8";
     if (card.special === "rainbow_monster") return "Rainbow Monster";
+    if (card.special === "rainbow_wild") return "Rainbow Wild";
+    if (card.special === "rainbow_lightning") return "Rainbow Lightning";
     if (card.value === "discard_all") return `${colors[card.color] || ""} Discard All`.trim();
     if (card.value === "draw2" || card.value === "draw") return `${colors[card.color] || ""} +2`.trim();
     if (card.value === "reverse") return `${colors[card.color] || ""} Reverse`.trim();
@@ -542,7 +608,7 @@
               if (spriteStyle) {
                 return `<button class="card-button sprite-card ${playable ? "playable" : ""}" style="${spriteStyle}" data-card="${esc(card.id)}" ${playable ? "" : "disabled"} aria-label="Play ${esc(cardLabel(card))}"></button>`;
               }
-              return `<button class="card-button ${playable ? "playable" : ""}" data-card="${esc(card.id)}" ${playable ? "" : "disabled"} aria-label="Play ${esc(cardLabel(card))}"><img src="${esc(cardImage(card))}" alt="${esc(cardLabel(card))}" /></button>`;
+              return `<button class="card-button ${playable ? "playable" : ""}" data-card="${esc(card.id)}" ${playable ? "" : "disabled"} aria-label="Play ${esc(cardLabel(card))}"><img src="${esc(cardImage(card))}" alt="${esc(cardLabel(card))}" loading="eager" /></button>`;
             }).join("") : '<p class="empty-hand">Your cards will appear here.</p>'}
           </div>
           <div class="action-dock">

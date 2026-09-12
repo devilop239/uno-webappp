@@ -61,19 +61,43 @@ def normalize_deck_style(value: str | None) -> str:
     return _STYLE_ALIASES.get(key, DECK_STYLE_NORMAL)
 
 
+def is_deck_style_allowed_for_mode(style: str | None, mode: str | None) -> bool:
+    style = normalize_deck_style(style)
+    mode_clean = str(mode or "classic").strip().lower()
+
+    if mode_clean == "no_mercy":
+        return style == DECK_STYLE_NO_MERCY or style == DECK_STYLE_NORMAL
+
+    # No Mercy deck style is not allowed in non-No Mercy modes
+    if style == DECK_STYLE_NO_MERCY:
+        return False
+
+    # Anime deck style is allowed ONLY in classic mode
+    if style == DECK_STYLE_ANIME:
+        return mode_clean == "classic"
+
+    return True
+
+
 def resolve_deck_style(game) -> str:
     if game is None:
         return DECK_STYLE_NORMAL
-    mode = getattr(game, "mode", None)
+    mode = getattr(game, "mode", "classic")
+    if mode == "no_mercy":
+        return DECK_STYLE_NO_MERCY
     if mode in MODES_NORMAL_STICKERS_ONLY:
         return DECK_STYLE_NORMAL
-    return normalize_deck_style(getattr(game, "deck_style", DECK_STYLE_NORMAL))
+    style = normalize_deck_style(getattr(game, "deck_style", DECK_STYLE_NORMAL))
+    if not is_deck_style_allowed_for_mode(style, mode):
+        return DECK_STYLE_NORMAL
+    return style
 
 
 def deck_style_selectable_for_mode(mode: str | None) -> bool:
-    if mode in MODES_FIXED_STICKER_PACK:
+    mode_clean = str(mode or "classic").strip().lower()
+    if mode_clean in MODES_FIXED_STICKER_PACK or mode_clean in MODES_NORMAL_STICKERS_ONLY:
         return False
-    return mode not in MODES_NORMAL_STICKERS_ONLY
+    return mode_clean == "classic"
 
 
 def is_alt_deck_style(style: str) -> bool:
@@ -112,6 +136,10 @@ def sticker_for(card, game=None, *, playable: bool = True) -> str:
     if game is not None and getattr(game, "mode", None) == "no_mercy":
         from no_mercy.stickers import sticker_for_card
         return sticker_for_card(card, game, playable=playable)
+    if game is not None and getattr(game, "mode", None) == "rainbow":
+        from deck.assets.rainbow import CARDS_RAINBOW
+        variant = "normal" if playable else "not_playable"
+        return CARDS_RAINBOW[variant].get(str(card)) or f"/images/Rainbow/{'Playble' if playable else 'Non_playble'}/{card}.webp"
     card_id = str(card)
     style = resolve_deck_style(game)
     return get_card_asset(card_id, style, playable=playable)

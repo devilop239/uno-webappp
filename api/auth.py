@@ -17,7 +17,7 @@ from typing import Any
 _SECRET = (
     os.getenv("UNO_SESSION_SECRET")
     or os.getenv("SESSION_SECRET")
-    or secrets.token_urlsafe(32)
+    or "uno_webapp_stable_session_secret_key_v2_2026"
 )
 _SESSION_TTL_SECONDS = int(os.getenv("UNO_SESSION_TTL_SECONDS", "86400"))
 

@@ -390,7 +390,8 @@ async def create_game(req: CreateGameRequest):
         if game is None:
             raise HTTPException(status_code=409, detail="That room code is already in use")
         game.mode = req.mode
-        game.deck_style = req.deck_style
+        from deck.styles import is_deck_style_allowed_for_mode, DECK_STYLE_NORMAL
+        game.deck_style = req.deck_style if is_deck_style_allowed_for_mode(req.deck_style, req.mode) else DECK_STYLE_NORMAL
         game.hand_size = req.hand_size
         game.stacking_enabled = req.stacking_enabled
         game.host_user_id = req.user_id

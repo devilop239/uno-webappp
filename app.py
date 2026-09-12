@@ -16,10 +16,13 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
 class CachedStaticFiles(StaticFiles):
-    """Static file handler that adds Cache-Control headers for optimal session caching."""
+    """Static file handler that adds aggressive Cache-Control headers for optimal asset caching."""
     async def get_response(self, path: str, scope) -> Response:
         response = await super().get_response(path, scope)
-        response.headers["Cache-Control"] = "public, max-age=86400"
+        if path.endswith(".svg") or "/sprites/" in path:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "public, max-age=86400"
         return response
 
 from db.mongo_client import get_database, close_database
@@ -38,15 +41,16 @@ logger = logging.getLogger("uno_webapp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan handler for initializing DB connections, assets sync, sprite sheets, and cleanup."""
+    """Lifespan handler for initializing DB connections, SVG sprite sheets, and static file sync."""
     logger.info("Initializing UNO WebApp backend...")
     
-    # Build card sprite sheets for ready decks on app startup
+    # Ensure static SVG card sprite sheets are generated on app startup
     try:
-        from scripts.build_spritesheets import main as build_spritesheets
-        build_spritesheets()
+        from scripts.build_svg_spritesheets import main as build_svg_spritesheets
+        build_svg_spritesheets()
+        logger.info("Static SVG card sprite sheets generated successfully.")
     except Exception as e:
-        logger.warning("Failed to auto-generate sprite sheets: %s", e)
+        logger.warning("Failed ensuring static SVG card sprite sheets: %s", e)
 
     # Sync static images to front-end/public/images for local frontend serving
     try:

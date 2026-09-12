@@ -254,9 +254,6 @@ async def do_play_card(bot: Optional[Any], player, result_id: str):
     else:
         _record_play_stats(user)
 
-    if game.is_team_mode:
-        game.note_team_action(user.id, card_obj=card, winning_move=False)
-
     if game.mode == "no_mercy":
         from no_mercy.actions_hook import after_play_card
         if await after_play_card(bot, player, card) == "stop":
@@ -266,6 +263,8 @@ async def do_play_card(bot: Optional[Any], player, result_id: str):
 async def do_pass(bot: Optional[Any], player):
     """Pass after drawing a normal card during the current turn."""
     game = player.game
+    chat = game.chat
+    user = player.user
     if not player.drew:
         raise InvalidActionError("You must draw before passing")
     if game.draw_counter:
@@ -315,77 +314,6 @@ async def do_pass(bot: Optional[Any], player):
                     await send_post_match_scoreboard(bot, chat.id, ctx)
                 except Exception as e:
                     logger.debug("Failed sending sudden death scoreboard: %s", e)
-            return
-
-        elif game.is_team_mode:
-            winning_team = game.team_of(user.id)
-            game.last_winning_team_id = winning_team
-            game.note_team_action(user.id, card_obj=card, winning_move=True)
-            if bot and chat:
-                try:
-                    from tg.helpers import send_message
-                    from aiogram.enums import ParseMode
-                    await send_message(
-                        bot,
-                        chat.id,
-                        text=(
-                            "Team <b>%s</b> wins!\n"
-                            "A: <b>%s</b> (%d cards)\n"
-                            "B: <b>%s</b> (%d cards)"
-                            % (
-                                game.team_names.get(winning_team) or ("Team A" if winning_team == "A" else "Team B"),
-                                game.team_names.get("A") or "Team A",
-                                game.team_cards_left("A"),
-                                game.team_names.get("B") or "Team B",
-                                game.team_cards_left("B"),
-                            )
-                        ),
-                        parse_mode=ParseMode.HTML,
-                    )
-                    mvp_uid, mvp_reason = game.choose_team_mvp(winning_team)
-                    if mvp_uid:
-                        mvp_player = next((p for p in game.players if int(p.user.id) == int(mvp_uid)), None)
-                        if mvp_player:
-                            await send_message(
-                                bot,
-                                chat.id,
-                                text="MVP: %s\n%s" % (display_name_html(mvp_player.user), mvp_reason),
-                                parse_mode=ParseMode.HTML,
-                            )
-                    game.rematch_payload = {
-                        "players": [int(p.user.id) for p in game.players],
-                        "teams": {"A": list(game.team_members["A"]), "B": list(game.team_members["B"])},
-                        "team_size": int(game.team_size),
-                        "mode": game.mode,
-                        "team_names": dict(game.team_names),
-                        "mvp_user_id": int(mvp_uid) if mvp_uid else None,
-                        "deck_style": normalize_deck_style(getattr(game, "deck_style", None)),
-                        "hand_size": game.hand_size,
-                        "stacking_enabled": game.stacking_enabled,
-                    }
-                    await send_message(
-                        bot,
-                        chat.id,
-                        text="Rematch?",
-                        reply_markup=markup(
-                            [
-                                [
-                                    btn_callback("Same Team", "tmr|same|%s" % game.match_uuid, "success", "p10"),
-                                    btn_callback("Shuffle Team", "tmr|shuffle|%s" % game.match_uuid, "primary", "p11"),
-                                ]
-                            ]
-                        ),
-                    )
-                except Exception as e:
-                    logger.debug("Failed sending team win messages: %s", e)
-
-            ctx = capture_match_context(game, fallback_user=user)
-            _get_gm().end_game(chat, user, reason="completed_team")
-            if bot and chat:
-                try:
-                    await send_post_match_scoreboard(bot, chat.id, ctx)
-                except Exception as e:
-                    logger.debug("Failed sending team scoreboard: %s", e)
             return
 
         if bot and chat:
@@ -499,10 +427,6 @@ async def do_draw(bot: Optional[Any], player):
 
     try:
         player.draw()
-        if game.is_team_mode:
-            row = game.team_action_stats.get(int(player.user.id))
-            if row is not None:
-                row["draw_penalties"] = int(row.get("draw_penalties") or 0) + int(draw_counter_before or 1)
     except DeckEmptyError:
         if bot and game.chat:
             try:

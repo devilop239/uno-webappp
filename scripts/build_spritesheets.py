@@ -43,6 +43,7 @@ DECKS_TO_PACK = {
     "classic": {"dir": IMAGES_DIR / "classic" / "playble", "custom_map": None},
     "anime_deck": {"dir": IMAGES_DIR / "anime_deck" / "playable", "custom_map": None},
     "no_mercy": {"dir": IMAGES_DIR / "No_Mercy" / "Playble", "custom_map": _MERCY_FILE_MAP},
+    "rainbow": {"dir": IMAGES_DIR / "Rainbow" / "Playble", "custom_map": None},
 }
 
 TILE_WIDTH = 200

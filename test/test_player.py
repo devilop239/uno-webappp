@@ -238,28 +238,3 @@ class Test(unittest.TestCase):
         self.game.choose_color(c.PURPLE)
         self.assertEqual(self.game.current_player, p1)
         self.assertEqual(self.game.last_card.color, c.PURPLE)
-
-    def test_team_leave_preserves_shared_hand(self):
-        from deck import Deck
-
-        game = Game(None)
-        game.is_team_mode = True
-        game.team_locked = True
-        game.team_size = 2
-        game.team_members = {"A": [1, 2], "B": [3, 4]}
-        game.deck = Deck()
-        u1, u2 = _DummyUser(1, "A1"), _DummyUser(2, "A2")
-        p1 = Player(game, u1)
-        p2 = Player(game, u2)
-        shared = [c.Card("r", "5"), c.Card("b", "3")]
-        game.team_shared_hands = {"A": shared, "B": []}
-        p1.cards = shared
-        p2.cards = shared
-
-        p1.leave()
-
-        self.assertEqual(len(shared), 2)
-        self.assertEqual(len(game.deck.graveyard), 0)
-        self.assertIs(p2.cards, shared)
-        self.assertNotIn(1, game.team_members["A"])
-        self.assertIn(2, game.team_members["A"])

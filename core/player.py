@@ -59,17 +59,7 @@ class Player(object):
         self.prev = None
 
     def _uses_team_shared_hand(self) -> bool:
-        game = self.game
-        if not getattr(game, "is_team_mode", False) or not getattr(game, "team_locked", False):
-            return False
-        uid = getattr(self.user, "id", None)
-        if uid is None:
-            return False
-        tid = game.team_of(uid)
-        if not tid:
-            return False
-        shared = game.team_shared_hands.get(tid)
-        return shared is not None and self.cards is shared
+        return False
 
     def leave(self):
         self._unlink_from_ring()

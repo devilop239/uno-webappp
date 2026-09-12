@@ -1,0 +1,10 @@
+{
+  "python.analysis.extraPaths": [
+    "C:/Users/Shivam/.venv/Lib/site-packages",
+    "${workspaceFolder}"
+  ],
+  "python.autoComplete.extraPaths": [
+    "C:/Users/Shivam/.venv/Lib/site-packages",
+    "${workspaceFolder}"
+  ]
+}

@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 
 from aiogram.types import InlineQueryResultArticle, InlineQueryResultCachedSticker as Sticker
 
+from internationalization import _
 import deck.card as c
 from modes.capabilities import supports_bluff_challenge, supports_pass_after_draw
 from ui.text_style import inline_label, premium_input_text, smallcaps
@@ -36,29 +37,8 @@ def player_list(game) -> List[str]:
     ]
 
 
-def game_info_text(game) -> str:
+def serialize_game_summary(game) -> str:
     """Generate textual summary of current game state for API or web UI."""
-    if getattr(game, "is_team_mode", False):
-        return (
-            "Mode: Team UNO %dv%d\n"
-            "A (%s): %d cards\n"
-            "B (%s): %d cards\n"
-            "Current turn: %s\n"
-            "Top card: %s\n"
-            "Active color: %s"
-            % (
-                int(game.team_size or 0),
-                int(game.team_size or 0),
-                game.team_names.get("A") or "Team A",
-                game.team_cards_left("A"),
-                game.team_names.get("B") or "Team B",
-                game.team_cards_left("B"),
-                display_name_html(game.current_player.user),
-                repr(game.last_card),
-                display_color(game.last_card.color) if getattr(game.last_card, "color", None) else "-",
-            )
-        )
-    
     players = player_list(game)
     raw = (
         "Current player: {name}\n"
@@ -77,6 +57,9 @@ def game_info_text(game) -> str:
             raw += "\n" + "\n".join(extra)
 
     return raw
+
+
+game_info_text = serialize_game_summary
 
 
 def serialize_game_state(game) -> Dict[str, Any]:
@@ -120,8 +103,6 @@ def serialize_game_state(game) -> Dict[str, Any]:
             "is_bot": bool(getattr(p.user, "is_bot", False)),
             "is_eliminated": (p.user.id in eliminated_uids),
         }
-        if game.is_team_mode:
-            p_info["team"] = game.team_of(p.user.id)
         players_data.append(p_info)
 
     opponents_targets = [
@@ -165,8 +146,6 @@ def serialize_game_state(game) -> Dict[str, Any]:
         } if last_c else None,
         "players": players_data,
         "finish_order": game.finish_order,
-        "is_team_mode": game.is_team_mode,
-        "teams": game.team_members if game.is_team_mode else None,
     }
 
 
