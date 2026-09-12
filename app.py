@@ -13,6 +13,14 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
+
+class CachedStaticFiles(StaticFiles):
+    """Static file handler that adds Cache-Control headers for optimal session caching."""
+    async def get_response(self, path: str, scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
 
 from db.mongo_client import get_database, close_database
 from api.modes_api import router as modes_router
@@ -88,8 +96,8 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-# Mount Static Files for Card Images
-app.mount("/images", StaticFiles(directory="images"), name="images")
+# Mount Static Files for Card Images with Cache-Control headers
+app.mount("/images", CachedStaticFiles(directory="images"), name="images")
 
 # Include Routers
 app.include_router(modes_router)

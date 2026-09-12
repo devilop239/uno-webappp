@@ -43,6 +43,48 @@
   let botThinking = null;
   let matchFinished = false;
 
+  const imageCache = new Map();
+
+  function preloadImage(url) {
+    if (!url || imageCache.has(url)) return;
+    const img = new Image();
+    img.src = url;
+    imageCache.set(url, img);
+  }
+
+  function clearImageMemory() {
+    imageCache.forEach((img) => {
+      img.src = "";
+    });
+    imageCache.clear();
+  }
+
+  function preloadGameAssets() {
+    if (Array.isArray(hand)) {
+      const deck = state.deck_style === "anime" ? "anime_deck" : "classic";
+      hand.forEach((card) => {
+        if (!card) return;
+        preloadImage(cardImage(card));
+        if (card.id) {
+          if (deck === "classic") {
+            preloadImage(assetPath(`/images/classic/playble/${card.id}.webp`));
+            preloadImage(assetPath(`/images/classic/non_playble/${card.id}.webp`));
+          } else {
+            preloadImage(assetPath(`/images/anime_deck/playable/${card.id}.webp`));
+            preloadImage(assetPath(`/images/anime_deck/not_playable/${card.id}.webp`));
+          }
+        }
+      });
+    }
+    if (state.top_card) {
+      preloadImage(cardImage(state.top_card));
+    }
+    defaultModes.forEach((m) => preloadImage(m.image));
+  }
+
+  window.addEventListener("beforeunload", clearImageMemory);
+  window.addEventListener("pagehide", clearImageMemory);
+
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
   }[char]));
@@ -372,6 +414,7 @@
       if (message.state) {
         state = message.state;
         await refreshHand();
+        preloadGameAssets();
         if (screen === "lobby" && state.started) enterGame();
         else renderCurrent();
       }
@@ -386,7 +429,10 @@
   async function refreshHand() {
     if (!room) return;
     try {
-      if (state.started) hand = await api(`/api/game/${room.id}/hand/${player.id}?session_token=${encodeURIComponent(room.session)}`);
+      if (state.started) {
+        hand = await api(`/api/game/${room.id}/hand/${player.id}?session_token=${encodeURIComponent(room.session)}`);
+        preloadGameAssets();
+      }
     } catch (_) {}
   }
 
