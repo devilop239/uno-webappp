@@ -518,6 +518,40 @@
 
   let spriteManifest = null;
   const preloadedSheetUrls = new Set();
+  const sheetHealthCache = new Map();
+  const sheetHealthPromises = new Map();
+
+  function checkSheetHealth(sheetUrl) {
+    if (!sheetUrl) return Promise.resolve(false);
+    if (sheetHealthCache.has(sheetUrl)) {
+      return Promise.resolve(sheetHealthCache.get(sheetUrl));
+    }
+    if (sheetHealthPromises.has(sheetUrl)) {
+      return sheetHealthPromises.get(sheetUrl);
+    }
+
+    const promise = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        sheetHealthCache.set(sheetUrl, true);
+        sheetHealthPromises.delete(sheetUrl);
+        resolve(true);
+      };
+      img.onerror = () => {
+        console.warn(`[SpriteSheet] Sheet URL failed to load: ${sheetUrl}. Falling back to individual card images.`);
+        sheetHealthCache.set(sheetUrl, false);
+        sheetHealthPromises.delete(sheetUrl);
+        if (screen === "game") {
+          safeRenderCurrent();
+        }
+        resolve(false);
+      };
+      img.src = sheetUrl;
+    });
+
+    sheetHealthPromises.set(sheetUrl, promise);
+    return promise;
+  }
 
   function activeDeckKey() {
     const mode = state?.mode || selectedMode || "classic";
@@ -545,8 +579,7 @@
     urlsToFetch.forEach((url) => {
       if (!preloadedSheetUrls.has(url)) {
         preloadedSheetUrls.add(url);
-        const img = new Image();
-        img.src = url;
+        checkSheetHealth(url);
       }
     });
   }
@@ -599,16 +632,29 @@
     }
     if (!deckMeta || !deckMeta.cards || !deckMeta.cards[card.id]) return null;
 
+    const isPlayable = card.playable !== false;
+    const sheetPath = isPlayable
+      ? (deckMeta.playable_sheet_path || deckMeta.sheet_path)
+      : (deckMeta.non_playable_sheet_path || deckMeta.sheet_path);
+    if (!sheetPath) return null;
+
+    const sheetUrl = assetPath(sheetPath + "?v=240x360_v2");
+
+    // If sheet is confirmed broken/404, fall back to per-card <img> rendering
+    if (sheetHealthCache.get(sheetUrl) === false) {
+      return null;
+    }
+
+    // Trigger non-blocking async verification if not yet checked
+    if (!sheetHealthCache.has(sheetUrl)) {
+      checkSheetHealth(sheetUrl);
+    }
+
     const pos = deckMeta.cards[card.id];
     const cols = deckMeta.cols || 10;
     const rows = deckMeta.rows || 6;
     const xPct = cols > 1 ? (pos.col / (cols - 1)) * 100 : 0;
     const yPct = rows > 1 ? (pos.row / (rows - 1)) * 100 : 0;
-    const isPlayable = card.playable !== false;
-    const sheetPath = isPlayable
-      ? (deckMeta.playable_sheet_path || deckMeta.sheet_path)
-      : (deckMeta.non_playable_sheet_path || deckMeta.sheet_path);
-    const sheetUrl = assetPath(sheetPath + "?v=240x360_v2");
     return `background-image: url('${sheetUrl}'); background-position: ${xPct.toFixed(6)}% ${yPct.toFixed(6)}%; background-size: ${cols * 100}% ${rows * 100}%;`;
   }
 

@@ -224,6 +224,8 @@ This repository can be deployed either as a **Standalone Web Application** or as
 3. Add a lobby button in `handlers/game.py` (`_deckstyle_keyboard` / `_deckstyle_text`).
 4. Place PNG sources under `images/<your_deck>/` if you maintain local art.
 
+> **Note on WebApp Card Sprites**: If you change or add any source card art under `images/<deck>/`, run `python scripts/build_svg_spritesheets.py` locally and commit the updated `.webp` files and manifest — this is not done automatically at deploy time.
+
 Game logic in `deck.py` should **not** be duplicated.
 
 ---

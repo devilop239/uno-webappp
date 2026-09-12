@@ -81,13 +81,13 @@ async def lifespan(app: FastAPI):
             logger.warning("Failed to sync images to front-end/public/images: %s", e)
     else:
         manifest_path = os.path.join("front-end", "sprites_manifest.json")
-        sprite_sample = os.path.join("images", "sprites", "classic_playable.webp")
+        sprite_sample = os.path.join("images", "sprites", "classic.webp")
         if os.path.exists(manifest_path) and os.path.exists(sprite_sample):
-            logger.info("Static WebP card sprite sheets and manifest verified.")
+            logger.info("Committed static WebP card sprite sheets and manifest verified on disk.")
         else:
             logger.warning(
-                "Static WebP sprite assets or manifest missing! "
-                "Run 'python scripts/build_svg_spritesheets.py' to generate sprite assets."
+                "Committed static WebP sprite assets or manifest missing! "
+                "If card images were updated, run 'python scripts/build_svg_spritesheets.py' locally and commit the generated .webp files and manifest."
             )
 
     db = get_database()
